@@ -10,12 +10,16 @@ dependencies = [
     "numpy",
     "pandas",
     "rich",
+    "rich-click",
     "xarray",
     "zarr",
 ]
 name = "watch-duck"
 requires-python = ">= 3.11"
 version = "0.1.0"
+
+[project.scripts]
+watch-duck = "watch_duck.main:cli"
 
 [tool.ruff]
 preview = true
@@ -51,6 +55,7 @@ watch-duck = { path = ".", editable = true }
 [tool.pixi.tasks]
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
+parse = "watch-duck parse"
 
 [tool.pixi.dependencies]
 numpy = ">=2.4.3,<3"
@@ -63,3 +68,4 @@ ruff = ">=0.15.9,<0.16"
 dask = ">=2026.3.0,<2027"
 distributed = ">=2026.3.0,<2027"
 jupyterlab = ">=4.5.6,<5"
+rich-click = ">=1.9.7,<2"

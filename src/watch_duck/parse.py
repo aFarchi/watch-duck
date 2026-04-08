@@ -186,6 +186,7 @@ def check_fc_experiment(experiment):
         raise ValueError(message)
     node_lag = node_fc['children']['lag']
     node_ini = node_main['children']['inigroup']
+    node_fc = node_main['children']['fcgroup']
     ini_groups = list(node_ini['children'].keys())
     fc_groups = list(node_fc['children'].keys())
     lag_groups = list(node_lag['children'].keys())
@@ -362,7 +363,11 @@ def get_progress_an_experiment(experiment, kind):
     obs_groups = list(node_obs['children'].keys())
     if len(obs_groups) == 1:
         return get_progress_an_1_experiment(
-            node_obs, node_main, node_lag, kind, obs_groups[0],
+            node_obs,
+            node_main,
+            node_lag,
+            kind,
+            obs_groups[0],
         )
     return get_progress_an_2_experiment(node_obs, node_main, node_lag, kind, obs_groups)
 
@@ -471,10 +476,10 @@ def parse_suite(log_file):
 def to_zarr(ds, path):
     if path.exists():
         logger.info('appending to existing zarr store "%s"', path)
-        ds.to_zarr(path, append_dim='time', mode='a')
+        ds.to_zarr(path, append_dim='time', mode='a', consolidated=False)
     else:
         logger.info('creating new zarr store "%s"', path)
-        ds.to_zarr(path, mode='w')
+        ds.to_zarr(path, mode='w', consolidated=False)
 
 
 def save_experiment_state(wdir, name, experiment, date, chunk_size=16):
@@ -489,7 +494,15 @@ def save_experiment_state(wdir, name, experiment, date, chunk_size=16):
             'node': (('node',), list(state.keys())),
         },
     ).expand_dims(time=[date])
+    # temporary fix for zarr v3 issue with strings
+    ds['node'] = ds['node'].astype('O')
+    # chunking in time
     ds['state'].encoding['chunks'] = (chunk_size, len(ds.node))
+    # encoding for time
+    ds['time'].encoding = {
+        'dtype': 'int64',
+        'units': 'minutes since 2026-01-01T00:00:00',
+    }
     to_zarr(ds, path_state)
 
 
@@ -510,13 +523,19 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
             'name': name,
         }),
     )
+    # chunking in time
     for key in progress:
         if 'date' not in key:
             ds[key].encoding['chunks'] = (chunk_size,)
+    # encoding for time
+    ds['time'].encoding = {
+        'dtype': 'int64',
+        'units': 'minutes since 2026-01-01T00:00:00',
+    }
     to_zarr(ds, path_progress)
 
 
-def postprocess_log_files(wdir):
+def parse_log_files(wdir):
     wdir = pathlib.Path(wdir)
     path_log_in = wdir / 'log_in'
     path_log_arxiv = wdir / 'log_arxiv'
@@ -527,14 +546,14 @@ def postprocess_log_files(wdir):
     logger.info('waiting 2 seconds before opening log files')
     time.sleep(2)
     for log_file in log_files:
-        logger.info('parsing log file %s', log_file)
+        logger.info('parsing log file "%s"', log_file)
         suite = parse_suite(log_file)
         if suite is None:
             logger.info('skipping log file (incomplete)')
             continue
 
         for name, experiment in suite['experiments'].items():
-            logger.info('preprocessing experiment "%s"', name)
+            logger.info('processing experiment "%s"', name)
             save_experiment_state(wdir, name, experiment, suite['date'])
             save_experiment_progress(wdir, name, experiment, suite['date'])
 
