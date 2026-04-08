@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH --job-name=get_status
+#SBATCH --qos=nf
+#SBATCH --time=00:05:00
+#SBATCH --output=/perm/daaf/ecflow/slurm/%x.%j.log
+#SBATCH --error=/perm/daaf/ecflow/slurm/%x.%j.log
+
+module load ecflow
+ecflow_client --host=ecflow-pifs-rd-f-1 --get_state=/daaf > "/perm/daaf/ecflow/logs/daaf_$(date +%Y_%m_%d_%H_%M_%S).log"

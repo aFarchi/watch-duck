@@ -1,0 +1,16 @@
+# jupyter
+.ipynb_checkpoints
+
+# pixi
+.pixi
+pixi.lock
+
+# pycharm
+.idea
+
+# python
+dist
+__pycache__
+
+# vim
+*.swp
