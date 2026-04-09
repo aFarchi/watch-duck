@@ -54,7 +54,7 @@ def get_speed_experiment(
         actual_delta_t += pd.Timedelta(time_diff[index])
     for node in nodes:
         progress[f'speed_{node}_it_day'] = (
-            (progress[f'index_{node}'] - ds[f'current_{node}'].isel(time=-1).item())
+            (progress[f'index_{node}'] - ds[f'current_{node}'].isel(time=index).item())
             / (actual_delta_t / pd.Timedelta('1D'))
             if actual_delta_t > pd.Timedelta('0h')
             else 0
@@ -94,7 +94,7 @@ def get_experiment_progress(wdir, experiment):
     }
     progress['total'] = (progress['date_end'] - progress['date_start']) // progress[
         'date_freq'
-    ]
+    ] + 1
     if ds.attrs['experiment_type'] == 'fc':
         nodes = ('ini', 'fc', 'lag')
     elif ds.attrs['experiment_type'] in {'lw', 'elda'}:
@@ -104,7 +104,7 @@ def get_experiment_progress(wdir, experiment):
     return get_eta_experiment(progress, nodes)
 
 
-def color_state(state):
+def format_state(state):
     color = {
         'complete': 'bright_yellow',
         'queued': 'bright_cyan',
@@ -116,13 +116,25 @@ def color_state(state):
     return f'[{color[state]}]{state}[/]'
 
 
-def color_speed(speed):
+def format_progress(index, total):
+    return f'{index} / {total} ({100*index / total:.2f}%)'
+
+
+def format_speed(speed):
     if speed > 0:
         return f'[green]{speed:.2f}[/]'
     return f'[red]{speed:.2f}[/]'
 
 
-def color_eta(speed, eta):
+def format_remaining(speed, remaining):
+    remaining = remaining.ceil('h')
+    if speed > 0:
+        return f'[green]{remaining}[/]'
+    return f'[red]{remaining}[/]'
+
+
+def format_eta(speed, eta):
+    eta = eta.ceil('h')
     if speed > 0:
         return f'[green]{eta}[/]'
     return f'[red]{eta}[/]'
@@ -143,12 +155,12 @@ def show_progress(wdir, experiment_type, wrt='lag'):
             continue
         table.add_row(
             experiment,
-            color_state(progress['state']),
-            f'{progress[f"index_{wrt}"]} / {progress["total"]}',
-            color_speed(progress[f'speed_{wrt}_it_day']),
-            color_speed(progress[f'speed_{wrt}_day_day']),
-            color_eta(progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}']),
-            color_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
+            format_state(progress['state']),
+            format_progress(progress[f"index_{wrt}"], progress["total"]),
+            format_speed(progress[f'speed_{wrt}_it_day']),
+            format_speed(progress[f'speed_{wrt}_day_day']),
+            format_remaining(progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}']),
+            format_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
         )
     console = Console()
     console.print(table)
