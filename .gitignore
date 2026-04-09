@@ -8,6 +8,9 @@ pixi.lock
 # pycharm
 .idea
 
+# vscode
+.vscode
+
 # python
 dist
 __pycache__

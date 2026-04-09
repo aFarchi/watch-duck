@@ -27,25 +27,6 @@ def get_state_family(prefix, family):
     return state
 
 
-def get_state_suite(suite):
-    state = {}
-    for key, value in suite['experiments'].items():
-        state.update(get_state_family(f'/{key}', value))
-    return state
-
-
-def check_group(group, kind=''):
-    if group not in {f'{kind}00', f'{kind}12'}:
-        message = f'unsupported group "{group}"'
-        raise ValueError(message)
-
-
-def check_groups(groups, kind=''):
-    if groups != [f'{kind}00', f'{kind}12']:
-        message = f'unsupported groups "{groups}"'
-        raise ValueError(message)
-
-
 def check_frequencies(freq_00, freq_12, freq):
     if freq_00 != 2 * freq or freq_12 != 2 * freq:
         message = f"""inconsistent date frequencies:
@@ -67,41 +48,15 @@ def current_date_to_index(progress):
     }
 
 
-def get_progress_fc_1_experiment(node_ini, node_fc, node_lag, group):
-    check_group(group)
-    step = int(group) * pd.Timedelta('1h')
-    date_start = pd.Timestamp(node_ini['children'][group]['ymd_start']) + step
-    date_end = pd.Timestamp(node_ini['children'][group]['ymd_end']) + step
-    date_freq = int(node_ini['children'][group]['ymd_freq']) * pd.Timedelta('1D')
-    date_ini = pd.Timestamp(node_ini['children'][group]['ymd_current']) + step
-    date_fc = pd.Timestamp(node_fc['children'][group]['ymd_current']) + step
-    date_lag = pd.Timestamp(node_lag['children'][group]['ymd_current']) + step
-    if node_ini['children'][group]['state'] == 'complete':
-        date_ini += date_freq
-        node_ini['children'][group]['state'] = 'queued'
-    if node_fc['children'][group]['state'] == 'complete':
-        date_fc += date_freq
-        node_fc['children'][group]['state'] = 'queued'
-    if node_lag['children'][group]['state'] == 'complete':
-        date_lag += date_freq
-        node_lag['children'][group]['state'] = 'queued'
+def encode_state_nodes(nodes, groups):
     return {
-        'date_start': date_start,
-        'date_end': date_end,
-        'date_freq': date_freq,
-        'current_ini': date_ini,
-        'current_fc': date_fc,
-        'current_lag': date_lag,
-        'state_ini': encode_state(node_ini['children'][group]['state']),
-        'state_fc': encode_state(node_fc['children'][group]['state']),
-        'state_lag': encode_state(node_lag['children'][group]['state']),
+        f'state_{node}_{group}': encode_state(nodes[node]['children'][group]['state'])
+        for node in nodes
+        for group in groups
     }
 
 
-def get_progress_fc_2_experiment(node_ini, node_fc, node_lag, ini_groups):
-    check_groups(ini_groups)
-    progress_00 = get_progress_fc_1_experiment(node_ini, node_fc, node_lag, '00')
-    progress_12 = get_progress_fc_1_experiment(node_ini, node_fc, node_lag, '12')
+def merge_progress(progress_00, progress_12, nodes):
     if progress_00['date_start'] < progress_12['date_start']:
         date_start = progress_00['date_start']
         date_end = progress_12['date_end']
@@ -111,9 +66,35 @@ def get_progress_fc_2_experiment(node_ini, node_fc, node_lag, ini_groups):
         date_end = progress_00['date_end']
         date_freq = progress_00['date_start'] - progress_12['date_start']
     check_frequencies(progress_00['date_freq'], progress_12['date_freq'], date_freq)
-    date_ini = min(progress_00['current_ini'], progress_12['current_ini'])
-    date_fc = min(progress_00['current_fc'], progress_12['current_fc'])
-    date_lag = min(progress_00['current_lag'], progress_12['current_lag'])
+    return {
+        'date_start': date_start,
+        'date_end': date_end,
+        'date_freq': date_freq,
+    } | {
+        f'current_{key}': min(
+            progress_00[f'current_{key}'], progress_12[f'current_{key}'],
+        )
+        for key in nodes
+    }
+
+
+def get_progress_fc_1_experiment(nodes, group):
+    step = int(group) * pd.Timedelta('1h')
+    date_start = pd.Timestamp(nodes['ini']['children'][group]['ymd_start']) + step
+    date_end = pd.Timestamp(nodes['ini']['children'][group]['ymd_end']) + step
+    date_freq = int(nodes['ini']['children'][group]['ymd_freq']) * pd.Timedelta('1D')
+    date_ini = pd.Timestamp(nodes['ini']['children'][group]['ymd_current']) + step
+    date_fc = pd.Timestamp(nodes['fc']['children'][group]['ymd_current']) + step
+    date_lag = pd.Timestamp(nodes['lag']['children'][group]['ymd_current']) + step
+    if nodes['ini']['children'][group]['state'] == 'complete':
+        date_ini += date_freq
+        nodes['ini']['children'][group]['state'] = 'queued'
+    if nodes['fc']['children'][group]['state'] == 'complete':
+        date_fc += date_freq
+        nodes['fc']['children'][group]['state'] = 'queued'
+    if nodes['lag']['children'][group]['state'] == 'complete':
+        date_lag += date_freq
+        nodes['lag']['children'][group]['state'] = 'queued'
     return {
         'date_start': date_start,
         'date_end': date_end,
@@ -121,35 +102,106 @@ def get_progress_fc_2_experiment(node_ini, node_fc, node_lag, ini_groups):
         'current_ini': date_ini,
         'current_fc': date_fc,
         'current_lag': date_lag,
-        'state_ini_00': encode_state(node_ini['children']['00']['state']),
-        'state_fc_00': encode_state(node_fc['children']['00']['state']),
-        'state_lag_00': encode_state(node_lag['children']['00']['state']),
-        'state_ini_12': encode_state(node_ini['children']['12']['state']),
-        'state_fc_12': encode_state(node_fc['children']['12']['state']),
-        'state_lag_12': encode_state(node_lag['children']['12']['state']),
+    } | encode_state_nodes(nodes, groups=[group])
+
+
+def get_progress_fc_2_experiment(nodes):
+    progress_00 = get_progress_fc_1_experiment(nodes, '00')
+    progress_12 = get_progress_fc_1_experiment(nodes, '12')
+    progress = merge_progress(progress_00, progress_12, nodes=('ini', 'fc', 'lag'))
+    return progress | encode_state_nodes(nodes, groups=('00', '12'))
+
+
+def get_progress_fc_experiment(experiment):
+    nodes = {
+        'ini': experiment['children']['fc']['children']['main']['children']['inigroup'],
+        'fc': experiment['children']['fc']['children']['main']['children']['fcgroup'],
+        'lag': experiment['children']['fc']['children']['lag'],
     }
+    groups = list(nodes['ini']['children'].keys())
+    if len(groups) == 1:
+        progress = get_progress_fc_1_experiment(nodes, groups[0])
+    else:
+        progress = get_progress_fc_2_experiment(nodes)
+    progress['state'] = encode_state(experiment['state'])
+    return progress
+
+
+def get_progress_an_1_experiment(nodes, kind, group):
+    step = int(group[len(kind) :]) * pd.Timedelta('1h')
+    date_start = pd.Timestamp(nodes['obs']['children'][group]['ymd_start']) + step
+    date_end = pd.Timestamp(nodes['obs']['children'][group]['ymd_end']) + step
+    date_freq = int(nodes['obs']['children'][group]['ymd_freq']) * pd.Timedelta('1D')
+    date_obs = pd.Timestamp(nodes['obs']['children'][group]['ymd_current']) + step
+    date_main = pd.Timestamp(nodes['main']['children'][group]['ymd_current']) + step
+    date_lag = pd.Timestamp(nodes['lag']['children'][group]['ymd_current']) + step
+    if nodes['obs']['children'][group]['state'] == 'complete':
+        date_obs += date_freq
+        nodes['obs']['children'][group]['state'] = 'queued'
+    if nodes['main']['children'][group]['state'] == 'complete':
+        date_main += date_freq
+        nodes['main']['children'][group]['state'] = 'queued'
+    if nodes['lag']['children'][group]['state'] == 'complete':
+        date_lag += date_freq
+        nodes['lag']['children'][group]['state'] = 'queued'
+    return {
+        'date_start': date_start,
+        'date_end': date_end,
+        'date_freq': date_freq,
+        'current_obs': date_obs,
+        'current_main': date_main,
+        'current_lag': date_lag,
+    } | encode_state_nodes(nodes, groups=[group])
+
+
+def get_progress_an_2_experiment(nodes, kind):
+    progress_00 = get_progress_an_1_experiment(nodes, kind, f'{kind}00')
+    progress_12 = get_progress_an_1_experiment(nodes, kind, f'{kind}12')
+    progress = merge_progress(progress_00, progress_12, nodes=('obs', 'main', 'lag'))
+    return progress | encode_state_nodes(nodes, groups=(f'{kind}00', f'{kind}12'))
+
+
+def get_progress_an_experiment(experiment, kind):
+    nodes = {
+        'obs': experiment['children']['an']['children']['obs'],
+        'main': experiment['children']['an']['children']['main'],
+        'lag': experiment['children']['an']['children']['lag'],
+    }
+    groups = list(nodes['obs']['children'].keys())
+    if len(groups) == 1:
+        progress = get_progress_an_1_experiment(nodes, kind, groups[0])
+    else:
+        progress = get_progress_an_2_experiment(nodes, kind)
+    progress['state'] = encode_state(experiment['state'])
+    return progress
 
 
 def check_fc_experiment(experiment):
-    if list(experiment['children'].keys()) != ['fc', 'cancel']:
-        message = (
-            f'unexpected experiment children "{list(experiment["children"].keys())}"'
-        )
+    children = list(experiment['children'].keys())
+    if children != ['fc', 'cancel']:
+        message = f'unexpected experiment children: "{children}"'
         raise ValueError(message)
-    node_fc = experiment['children']['fc']
-    if list(node_fc['children'].keys()) != ['make', 'main', 'lag']:
-        message = f'unexpected fc children "{list(node_fc["children"].keys())}"'
+    children = list(experiment['children']['fc']['children'].keys())
+    if children != ['make', 'main', 'lag']:
+        message = f'unexpected experiment/fc children: "{children}"'
         raise ValueError(message)
-    node_main = node_fc['children']['main']
-    if list(node_main['children'].keys()) != ['inigroup', 'fcgroup']:
-        message = f'unexpected main children "{list(node_main["children"].keys())}"'
+    children = list(experiment['children']['fc']['children']['main']['children'].keys())
+    if children != ['inigroup', 'fcgroup']:
+        message = f'unexpected experiment/fc/main children: "{children}"'
         raise ValueError(message)
-    node_lag = node_fc['children']['lag']
-    node_ini = node_main['children']['inigroup']
-    node_fc = node_main['children']['fcgroup']
-    ini_groups = list(node_ini['children'].keys())
-    fc_groups = list(node_fc['children'].keys())
-    lag_groups = list(node_lag['children'].keys())
+    ini_groups = list(
+        experiment['children']['fc']['children']['main']['children']['inigroup'][
+            'children'
+        ].keys(),
+    )
+    fc_groups = list(
+        experiment['children']['fc']['children']['main']['children']['fcgroup'][
+            'children'
+        ].keys(),
+    )
+    lag_groups = list(
+        experiment['children']['fc']['children']['lag']['children'].keys(),
+    )
     if ini_groups != fc_groups or ini_groups != lag_groups:
         message = f"""ini, fc, and lag groups should have the same children:
     ini_groups={ini_groups},
@@ -157,37 +209,29 @@ def check_fc_experiment(experiment):
     lag_groups={lag_groups}
 """
         raise ValueError(message)
-
-
-def get_progress_fc_experiment(experiment):
-    check_fc_experiment(experiment)
-    node_fc = experiment['children']['fc']
-    node_main = node_fc['children']['main']
-    node_lag = node_fc['children']['lag']
-    node_ini = node_main['children']['inigroup']
-    node_fc = node_main['children']['fcgroup']
-    ini_groups = list(node_ini['children'].keys())
-    if len(ini_groups) == 1:
-        return get_progress_fc_1_experiment(node_ini, node_fc, node_lag, ini_groups[0])
-    return get_progress_fc_2_experiment(node_ini, node_fc, node_lag, ini_groups)
-
-
-def check_an_experiment(experiment):
-    if list(experiment['children'].keys()) != ['an', 'cancel']:
-        message = (
-            f'unexpected experiment children "{list(experiment["children"].keys())}"'
-        )
+    if ini_groups not in [['00'], ['12'], ['00', '12']]:
+        message = f'unexpected groups: "{ini_groups}"'
         raise ValueError(message)
-    node_an = experiment['children']['an']
-    if list(node_an['children'].keys()) != ['make', 'obs', 'main', 'lag', 'wsjobs']:
-        message = f'unexpected an children "{list(node_an["children"].keys())}"'
+
+
+def check_an_experiment(experiment, kind):
+    children = list(experiment['children'].keys())
+    if children != ['an', 'cancel']:
+        message = f'unexpected experiment children: "{children}"'
         raise ValueError(message)
-    node_obs = node_an['children']['obs']
-    node_main = node_an['children']['main']
-    node_lag = node_an['children']['lag']
-    obs_groups = list(node_obs['children'].keys())
-    main_groups = list(node_main['children'].keys())
-    lag_groups = list(node_lag['children'].keys())
+    children = list(experiment['children']['an']['children'].keys())
+    if children != ['make', 'obs', 'main', 'lag', 'wsjobs']:
+        message = f'unexpected experiment/an children: "{children}"'
+        raise ValueError(message)
+    obs_groups = list(
+        experiment['children']['an']['children']['obs']['children'].keys(),
+    )
+    main_groups = list(
+        experiment['children']['an']['children']['main']['children'].keys(),
+    )
+    lag_groups = list(
+        experiment['children']['an']['children']['lag']['children'].keys(),
+    )
     if obs_groups != main_groups or obs_groups != lag_groups:
         message = f"""obs, main, and lag groups should have the same children:
     obs_groups={obs_groups},
@@ -195,113 +239,30 @@ def check_an_experiment(experiment):
     lag_groups={lag_groups}
 """
         raise ValueError(message)
-
-
-def get_progress_an_1_experiment(node_obs, node_main, node_lag, kind, group):
-    check_group(group, kind=kind)
-    step = int(group[len(kind) :]) * pd.Timedelta('1h')
-    date_start = pd.Timestamp(node_obs['children'][group]['ymd_start']) + step
-    date_end = pd.Timestamp(node_obs['children'][group]['ymd_end']) + step
-    date_freq = int(node_obs['children'][group]['ymd_freq']) * pd.Timedelta('1D')
-    date_obs = pd.Timestamp(node_obs['children'][group]['ymd_current']) + step
-    date_main = pd.Timestamp(node_main['children'][group]['ymd_current']) + step
-    date_lag = pd.Timestamp(node_lag['children'][group]['ymd_current']) + step
-    if node_obs['children'][group]['state'] == 'complete':
-        date_obs += date_freq
-        node_obs['children'][group]['state'] = 'queued'
-    if node_main['children'][group]['state'] == 'complete':
-        date_main += date_freq
-        node_main['children'][group]['state'] = 'queued'
-    if node_lag['children'][group]['state'] == 'complete':
-        date_lag += date_freq
-        node_lag['children'][group]['state'] = 'queued'
-    return {
-        'date_start': date_start,
-        'date_end': date_end,
-        'date_freq': date_freq,
-        'current_obs': date_obs,
-        'current_main': date_main,
-        'current_lag': date_lag,
-        'state_obs': encode_state(node_obs['children'][group]['state']),
-        'state_main': encode_state(node_main['children'][group]['state']),
-        'state_lag': encode_state(node_lag['children'][group]['state']),
-    }
-
-
-def get_progress_an_2_experiment(node_obs, node_main, node_lag, kind, obs_groups):
-    check_groups(obs_groups, kind=kind)
-    progress_00 = get_progress_an_1_experiment(
-        node_obs,
-        node_main,
-        node_lag,
-        kind,
-        f'{kind}00',
-    )
-    progress_12 = get_progress_an_1_experiment(
-        node_obs,
-        node_main,
-        node_lag,
-        kind,
-        f'{kind}12',
-    )
-    if progress_00['date_start'] < progress_12['date_start']:
-        date_start = progress_00['date_start']
-        date_end = progress_12['date_end']
-        date_freq = progress_12['date_start'] - progress_00['date_start']
-    else:
-        date_start = progress_12['date_start']
-        date_end = progress_00['date_end']
-        date_freq = progress_00['date_start'] - progress_12['date_start']
-    check_frequencies(progress_00['date_freq'], progress_12['date_freq'], date_freq)
-    date_obs = min(progress_00['current_obs'], progress_12['current_obs'])
-    date_main = min(progress_00['current_main'], progress_12['current_main'])
-    date_lag = min(progress_00['current_lag'], progress_12['current_lag'])
-    return {
-        'date_start': date_start,
-        'date_end': date_end,
-        'date_freq': date_freq,
-        'current_obs': date_obs,
-        'current_main': date_main,
-        'current_lag': date_lag,
-        'state_obs_00': encode_state(node_obs['children'][f'{kind}00']['state']),
-        'state_main_00': encode_state(node_main['children'][f'{kind}00']['state']),
-        'state_lag_00': encode_state(node_lag['children'][f'{kind}00']['state']),
-        'state_obs_12': encode_state(node_obs['children'][f'{kind}12']['state']),
-        'state_main_12': encode_state(node_main['children'][f'{kind}12']['state']),
-        'state_lag_12': encode_state(node_lag['children'][f'{kind}12']['state']),
-    }
-
-
-def get_progress_an_experiment(experiment, kind):
-    check_an_experiment(experiment)
-    node_an = experiment['children']['an']
-    node_obs = node_an['children']['obs']
-    node_main = node_an['children']['main']
-    node_lag = node_an['children']['lag']
-    obs_groups = list(node_obs['children'].keys())
-    if len(obs_groups) == 1:
-        return get_progress_an_1_experiment(
-            node_obs,
-            node_main,
-            node_lag,
-            kind,
-            obs_groups[0],
-        )
-    return get_progress_an_2_experiment(node_obs, node_main, node_lag, kind, obs_groups)
+    if obs_groups not in [[f'{kind}00'], [f'{kind}12'], [f'{kind}00', f'{kind}12']]:
+        message = f'unexpected groups: "{obs_groups}"'
+        raise ValueError(message)
 
 
 def get_experiment_type(experiment):
     main_type = next(iter(experiment['children'].keys()))
     if main_type == 'fc':
+        check_fc_experiment(experiment)
         return 'fc'
-    if next(iter(experiment['children'].keys())) != 'an':
-        message = (
-            f'unexpected experiment children "{list(experiment["children"].keys())}"'
+    if main_type == 'an' and 'obs' in experiment['children']['an']['children']:
+        obs_groups = list(
+            experiment['children']['an']['children']['obs']['children'].keys(),
         )
+        if obs_groups in [['lw00'], ['lw12'], ['lw00', 'lw12']]:
+            check_an_experiment(experiment, kind='lw')
+            return 'lw'
+        if obs_groups in [['elda00'], ['elda12'], ['elda00', 'elda12']]:
+            check_an_experiment(experiment, kind='elda')
+            return 'elda'
+        message = f'unexpected obs groups: "{obs_groups}"'
         raise ValueError(message)
-    return next(
-        iter(experiment['children']['an']['children']['obs']['children'].keys()),
-    )[:-2]
+    message = 'unable to determine experiment type'
+    raise ValueError(message)
 
 
 def get_progress_experiment(experiment):
@@ -441,7 +402,8 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
         attrs={
             key: progress[key].strftime('%Y-%m-%dT%H:%M:%S')
             for key in ('date_start', 'date_end')
-        }|{'date_freq': int(progress['date_freq'].total_seconds()) // 3600},
+        }
+        | {'date_freq': int(progress['date_freq'].total_seconds()) // 3600},
     )
     # chunking in time
     for key in progress:
