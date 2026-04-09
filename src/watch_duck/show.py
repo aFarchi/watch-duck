@@ -1,0 +1,154 @@
+import logging
+import pathlib
+
+import pandas as pd
+import xarray as xr
+from rich.console import Console
+from rich.table import Table
+
+logger = logging.getLogger(__name__)
+
+
+def decode_state(state):
+    return {
+        0: 'complete',
+        1: 'queued',
+        2: 'active',
+        3: 'aborted',
+        4: 'suspended',
+        5: 'submitted',
+    }[state]
+
+
+def get_active_experiments(wdir):
+    wdir = pathlib.Path(wdir) / 'active'
+    experiments = []
+    for filename in wdir.glob('*.txt'):
+        with filename.open('r', encoding=None) as file:
+            experiments.extend(line.strip() for line in file if line.strip())
+    return experiments
+
+
+def get_progress_experiment(ds, progress, nodes):
+    for node in nodes:
+        progress[f'index_{node}'] = ds[f'current_{node}'].isel(time=-1).item()
+        progress[f'date_{node}'] = (
+            progress['date_start'] + progress[f'index_{node}'] * progress['date_freq']
+        )
+    return progress
+
+
+def get_speed_experiment(
+    ds, progress, nodes, *, delta_t='48h', exclude_aborted=True, exclude_suspended=True,
+):
+    delta_t = pd.Timedelta(delta_t)
+    actual_delta_t = pd.Timedelta('0h')
+    time_diff = ds.time.diff(dim='time').to_numpy()
+    index = len(ds.time) - 1
+    while actual_delta_t < delta_t and index > 0:
+        index -= 1
+        if exclude_aborted and ds.state.isel(time=index).item() == 3:
+            continue
+        if exclude_suspended and ds.state.isel(time=index).item() == 4:
+            continue
+        actual_delta_t += pd.Timedelta(time_diff[index])
+    for node in nodes:
+        progress[f'speed_{node}_it_day'] = (
+            (progress[f'index_{node}'] - ds[f'current_{node}'].isel(time=-1).item())
+            / (actual_delta_t / pd.Timedelta('1D'))
+            if actual_delta_t > pd.Timedelta('0h')
+            else 0
+        )
+        progress[f'speed_{node}_day_day'] = (
+            progress[f'speed_{node}_it_day']
+            * progress['date_freq']
+            / pd.Timedelta('1D')
+        )
+    return progress
+
+
+def get_eta_experiment(progress, nodes):
+    for node in nodes:
+        if progress[f'speed_{node}_day_day'] > 0:
+            progress[f'remaining_{node}'] = (
+                progress['date_end'] - progress[f'date_{node}']
+            ) / progress[f'speed_{node}_day_day']
+            progress[f'eta_{node}'] = pd.Timestamp.now() + progress[f'remaining_{node}']
+        else:
+            progress[f'remaining_{node}'] = pd.NaT
+            progress[f'eta_{node}'] = pd.NaT
+    return progress
+
+
+def get_experiment_progress(wdir, experiment):
+    logger.debug('Getting progress of experiment: "%s"', experiment)
+    wdir = pathlib.Path(wdir) / 'progress'
+    filename = wdir / f'{experiment}.zarr'
+    ds = xr.open_zarr(filename, consolidated=False).load()
+    progress = {
+        'experiment_type': ds.attrs['experiment_type'],
+        'date_start': pd.Timestamp(ds.attrs['date_start']),
+        'date_end': pd.Timestamp(ds.attrs['date_end']),
+        'date_freq': ds.attrs['date_freq'] * pd.Timedelta('1h'),
+        'state': decode_state(ds.state.isel(time=-1).item()),
+    }
+    progress['total'] = (progress['date_end'] - progress['date_start']) // progress[
+        'date_freq'
+    ]
+    if ds.attrs['experiment_type'] == 'fc':
+        nodes = ('ini', 'fc', 'lag')
+    elif ds.attrs['experiment_type'] in {'lw', 'elda'}:
+        nodes = ('obs', 'main', 'lag')
+    progress = get_progress_experiment(ds, progress, nodes)
+    progress = get_speed_experiment(ds, progress, nodes)
+    return get_eta_experiment(progress, nodes)
+
+
+def color_state(state):
+    color = {
+        'complete': 'bright_yellow',
+        'queued': 'bright_cyan',
+        'active': 'green',
+        'aborted': 'red',
+        'suspended': 'yellow',
+        'submitted': 'bright_cyan',
+    }
+    return f'[{color[state]}]{state}[/]'
+
+
+def color_speed(speed):
+    if speed > 0:
+        return f'[green]{speed:.2f}[/]'
+    return f'[red]{speed:.2f}[/]'
+
+
+def color_eta(speed, eta):
+    if speed > 0:
+        return f'[green]{eta}[/]'
+    return f'[red]{eta}[/]'
+
+
+def show_progress(wdir, experiment_type, wrt='lag'):
+    table = Table(title=f'Active "{experiment_type}" Experiments')
+    table.add_column('ID', style='cyan')
+    table.add_column('State', style='green')
+    table.add_column(f'Progress on "{wrt}"', style='yellow', justify='right')
+    table.add_column(f'Speed {wrt} (it/day)', style='magenta', justify='right')
+    table.add_column(f'Speed {wrt} (day/day)', style='magenta', justify='right')
+    table.add_column('Time remaining', style='magenta', justify='right')
+    table.add_column('ETA', style='magenta', justify='right')
+    for experiment in get_active_experiments(wdir):
+        progress = get_experiment_progress(wdir, experiment)
+        if progress['experiment_type'] != experiment_type:
+            continue
+        table.add_row(
+            experiment,
+            color_state(progress['state']),
+            f'{progress[f"index_{wrt}"]} / {progress["total"]}',
+            color_speed(progress[f'speed_{wrt}_it_day']),
+            color_speed(progress[f'speed_{wrt}_day_day']),
+            color_eta(progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}']),
+            color_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
+        )
+    console = Console()
+    console.print(table)

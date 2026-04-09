@@ -72,7 +72,8 @@ def merge_progress(progress_00, progress_12, nodes):
         'date_freq': date_freq,
     } | {
         f'current_{key}': min(
-            progress_00[f'current_{key}'], progress_12[f'current_{key}'],
+            progress_00[f'current_{key}'],
+            progress_12[f'current_{key}'],
         )
         for key in nodes
     }
@@ -124,6 +125,7 @@ def get_progress_fc_experiment(experiment):
     else:
         progress = get_progress_fc_2_experiment(nodes)
     progress['state'] = encode_state(experiment['state'])
+    progress['experiment_type'] = 'fc'
     return progress
 
 
@@ -173,6 +175,7 @@ def get_progress_an_experiment(experiment, kind):
     else:
         progress = get_progress_an_2_experiment(nodes, kind)
     progress['state'] = encode_state(experiment['state'])
+    progress['experiment_type'] = kind
     return progress
 
 
@@ -394,7 +397,7 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
         data_vars={
             key: (('time',), [value])
             for key, value in progress.items()
-            if 'date' not in key
+            if 'current' in key or 'state' in key
         },
         coords={
             'time': (('time',), [date]),
@@ -403,11 +406,14 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
             key: progress[key].strftime('%Y-%m-%dT%H:%M:%S')
             for key in ('date_start', 'date_end')
         }
-        | {'date_freq': int(progress['date_freq'].total_seconds()) // 3600},
+        | {
+            'date_freq': int(progress['date_freq'].total_seconds()) // 3600,
+            'experiment_type': progress['experiment_type'],
+        },
     )
     # chunking in time
     for key in progress:
-        if 'date' not in key:
+        if 'current' in key or 'state' in key:
             ds[key].encoding['chunks'] = (chunk_size,)
     # encoding for time
     ds['time'].encoding = {
