@@ -1,0 +1,4 @@
+#!/bin/bash
+module load tykky
+tykky activate wd
+watch-duck parse /perm/daaf/ecflow

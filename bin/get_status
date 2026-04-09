@@ -5,5 +5,6 @@
 #SBATCH --output=/perm/daaf/ecflow/slurm/%x.%j.log
 #SBATCH --error=/perm/daaf/ecflow/slurm/%x.%j.log
 
+source /etc/profile
 module load ecflow
-ecflow_client --host=ecflow-pifs-rd-f-1 --get_state=/daaf > "/perm/daaf/ecflow/logs/daaf_$(date +%Y_%m_%d_%H_%M_%S).log"
+ecflow_client --host=ecflow-pifs-rd-f-1 --get_state=/daaf > "/perm/daaf/ecflow/log_in/daaf_$(date +%Y_%m_%d_%H_%M_%S).log"
