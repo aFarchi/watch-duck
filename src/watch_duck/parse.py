@@ -53,13 +53,16 @@ def current_date_to_index(progress):
 
 def encode_state_nodes(nodes, groups):
     return {
+        f'state_{node}': encode_state(nodes[node]['state'])
+        for node in nodes
+    } | {
         f'state_{node}_{group}': encode_state(nodes[node]['children'][group]['state'])
         for node in nodes
         for group in groups
     }
 
 
-def merge_progress(progress_00, progress_12, nodes):
+def merge_progress(progress_00, progress_12, nodes, kind):
     if progress_00['date_start'] < progress_12['date_start']:
         date_start = progress_00['date_start']
         date_end = progress_12['date_end']
@@ -74,9 +77,17 @@ def merge_progress(progress_00, progress_12, nodes):
         'date_end': date_end,
         'date_freq': date_freq,
     } | {
+        key: value 
+        for key, value in progress_00.items()
+        if key.startswith('current_')
+    } | {
+        key: value 
+        for key, value in progress_12.items()
+        if key.startswith('current_')
+    } | {
         f'current_{key}': min(
-            progress_00[f'current_{key}'],
-            progress_12[f'current_{key}'],
+            progress_00[f'current_{key}_{kind}00'],
+            progress_12[f'current_{key}_{kind}12'],
         )
         for key in nodes
     }
@@ -103,16 +114,16 @@ def get_progress_fc_1_experiment(nodes, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        'current_ini': date_ini,
-        'current_fc': date_fc,
-        'current_lag': date_lag,
+        f'current_ini_{group}': date_ini,
+        f'current_fc_{group}': date_fc,
+        f'current_lag_{group}': date_lag,
     } | encode_state_nodes(nodes, groups=[group])
 
 
 def get_progress_fc_2_experiment(nodes):
     progress_00 = get_progress_fc_1_experiment(nodes, '00')
     progress_12 = get_progress_fc_1_experiment(nodes, '12')
-    progress = merge_progress(progress_00, progress_12, nodes=('ini', 'fc', 'lag'))
+    progress = merge_progress(progress_00, progress_12, nodes=('ini', 'fc', 'lag'), kind='')
     return progress | encode_state_nodes(nodes, groups=('00', '12'))
 
 
@@ -153,16 +164,16 @@ def get_progress_an_1_experiment(nodes, kind, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        'current_obs': date_obs,
-        'current_main': date_main,
-        'current_lag': date_lag,
+        f'current_obs_{group}': date_obs,
+        f'current_main_{group}': date_main,
+        f'current_lag_{group}': date_lag,
     } | encode_state_nodes(nodes, groups=[group])
 
 
 def get_progress_an_2_experiment(nodes, kind):
     progress_00 = get_progress_an_1_experiment(nodes, kind, f'{kind}00')
     progress_12 = get_progress_an_1_experiment(nodes, kind, f'{kind}12')
-    progress = merge_progress(progress_00, progress_12, nodes=('obs', 'main', 'lag'))
+    progress = merge_progress(progress_00, progress_12, nodes=('obs', 'main', 'lag'), kind=kind)
     return progress | encode_state_nodes(nodes, groups=(f'{kind}00', f'{kind}12'))
 
 
