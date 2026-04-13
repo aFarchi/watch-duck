@@ -7,4 +7,4 @@
 
 source /etc/profile
 module load ecflow
-ecflow_client --host=ecflow-pifs-rd-f-1 --get_state=/daaf > "/perm/daaf/ecflow/log_in/daaf_$(date +%Y_%m_%d_%H_%M_%S).log"
+ecflow_client --host=ecflow-pifs-rd-$2-1 --get_state=$1 > "/perm/daaf/ecflow/log_in/$1_$(date +%Y_%m_%d_%H_%M_%S).log"
