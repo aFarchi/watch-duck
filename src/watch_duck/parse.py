@@ -72,18 +72,10 @@ def merge_progress(progress_00, progress_12, nodes, kind):
         date_end = progress_00['date_end']
         date_freq = progress_00['date_start'] - progress_12['date_start']
     check_frequencies(progress_00['date_freq'], progress_12['date_freq'], date_freq)
-    return {
+    return progress_00 | progress_12 | {
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-    } | {
-        key: value 
-        for key, value in progress_00.items()
-        if key.startswith('current_')
-    } | {
-        key: value 
-        for key, value in progress_12.items()
-        if key.startswith('current_')
     } | {
         f'current_{key}': min(
             progress_00[f'current_{key}_{kind}00'],
@@ -114,6 +106,9 @@ def get_progress_fc_1_experiment(nodes, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
+        f'current_ini': date_ini,
+        f'current_fc': date_fc,
+        f'current_lag': date_lag,
         f'current_ini_{group}': date_ini,
         f'current_fc_{group}': date_fc,
         f'current_lag_{group}': date_lag,
@@ -164,6 +159,9 @@ def get_progress_an_1_experiment(nodes, kind, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
+        f'current_obs': date_obs,
+        f'current_main': date_main,
+        f'current_lag': date_lag,
         f'current_obs_{group}': date_obs,
         f'current_main_{group}': date_main,
         f'current_lag_{group}': date_lag,

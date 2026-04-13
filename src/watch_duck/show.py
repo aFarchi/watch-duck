@@ -4,6 +4,7 @@ import pathlib
 import pandas as pd
 import xarray as xr
 from rich.console import Console
+import rich.progress
 from rich.table import Table
 
 logger = logging.getLogger(__name__)
@@ -20,12 +21,15 @@ def decode_state(state):
     }[state]
 
 
-def get_active_experiments(wdir):
+def get_active_experiments(wdir, experiment_type):
     wdir = pathlib.Path(wdir) / 'active'
     experiments = []
     for filename in wdir.glob('*.txt'):
         with filename.open('r', encoding=None) as file:
-            experiments.extend(line.strip() for line in file if line.strip())
+            for line in file:
+                name, the_type = line.strip().split(': ')
+                if the_type == experiment_type:
+                    experiments.append(name)
     return experiments
 
 
@@ -146,29 +150,61 @@ def format_eta(speed, eta):
     return f'[red]{eta}[/]'
 
 
+def overall_progres_bar():
+    return rich.progress.Progress(
+        rich.progress.SpinnerColumn(),
+        rich.progress.TextColumn('[green]{task.description}'),
+        rich.progress.BarColumn(),
+        rich.progress.MofNCompleteColumn(),
+        rich.progress.TextColumn('•'),
+        rich.progress.TaskProgressColumn(),
+        rich.progress.TextColumn('• Elapsed:'),
+        rich.progress.TimeElapsedColumn(),
+        rich.progress.TextColumn('• Remaining:'),
+        rich.progress.TimeRemainingColumn(),
+    )
+
+
+def prepare_report(wdir, experiment_type, wrt):
+    report = []
+    with overall_progres_bar() as progress:
+        for experiment in progress.track(
+            get_active_experiments(wdir, experiment_type),
+            description='preparing report',
+        ):
+            progress = get_experiment_progress(wdir, experiment)
+            report.append({
+                'experiment': experiment,
+                'state': format_state(progress['state']),
+                f'progress_{wrt}': format_progress(progress[f'index_{wrt}'], progress['total']),
+                f'speed_{wrt}_it_day': format_speed(progress[f'speed_{wrt}_it_day']),
+                f'speed_{wrt}_day_day': format_speed(progress[f'speed_{wrt}_day_day']),
+                'time_remaining': format_remaining(
+                    progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}'],
+                ),
+                'eta': format_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
+            })
+    return report
+
+
 def show_progress(wdir, experiment_type, wrt='lag'):
     table = Table(title=f'Active "{experiment_type}" Experiments')
     table.add_column('ID', style='cyan')
     table.add_column('State', style='green')
     table.add_column(f'Progress on "{wrt}"', style='yellow', justify='right')
-    table.add_column(f'Speed {wrt} (it/day)', style='magenta', justify='right')
-    table.add_column(f'Speed {wrt} (day/day)', style='magenta', justify='right')
+    table.add_column(f'Speed (it/day)', style='magenta', justify='right')
+    table.add_column(f'Speed (day/day)', style='magenta', justify='right')
     table.add_column('Time remaining', style='magenta', justify='right')
     table.add_column('ETA', style='magenta', justify='right')
-    for experiment in get_active_experiments(wdir):
-        progress = get_experiment_progress(wdir, experiment)
-        if progress['experiment_type'] != experiment_type:
-            continue
+    for experiment in prepare_report(wdir, experiment_type, wrt):
         table.add_row(
-            experiment,
-            format_state(progress['state']),
-            format_progress(progress[f'index_{wrt}'], progress['total']),
-            format_speed(progress[f'speed_{wrt}_it_day']),
-            format_speed(progress[f'speed_{wrt}_day_day']),
-            format_remaining(
-                progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}'],
-            ),
-            format_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
+            experiment['experiment'],
+            experiment['state'],
+            experiment[f'progress_{wrt}'],
+            experiment[f'speed_{wrt}_it_day'],
+            experiment[f'speed_{wrt}_day_day'],
+            experiment['time_remaining'],
+            experiment['eta'],
         )
     console = Console()
     console.print(table)
