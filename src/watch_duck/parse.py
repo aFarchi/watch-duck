@@ -1,8 +1,11 @@
 import logging
 import pathlib
-import time
 
 import pandas as pd
+import rich.console
+import rich.live
+import rich.panel
+import rich.progress
 import xarray as xr
 
 logger = logging.getLogger(__name__)
@@ -323,30 +326,32 @@ def parse_family(log_file, state):
 
 def parse_suite(log_file):
     full_log = False
-    with pathlib.Path(log_file).open('r', encoding=None) as f:
-        experiments = {}
-        for line in f:
-            if line.startswith('suite'):
-                suite_name = line.split('#', 1)[0].replace('suite ', '').strip()
-            elif line.startswith('# edit ECF_DATE'):
-                suite_date = (
-                    line.replace('# edit ECF_DATE', '').replace("'", '').strip()
-                )
-            elif line.startswith('# edit ECF_TIME'):
-                suite_time = (
-                    line.replace('# edit ECF_TIME', '').replace("'", '').strip() + ':00'
-                )
-            elif line.startswith('family'):
-                name, state = parse_family_line(line)
-                logger.info('found experiment "%s"', name)
-                if name == 'experiment_launcher':
-                    logger.info('skipping...')
-                    parse_family(f, state)
-                else:
-                    experiments[name] = parse_family(f, state)
-            elif line.startswith('endsuite'):
-                full_log = True
-                break
+    with sub_task_progress_bar() as sp:  # noqa: SIM117
+        with sp.open(log_file, mode='r', encoding=None, description='reading') as f:
+            experiments = {}
+            for line in f:
+                if line.startswith('suite'):
+                    suite_name = line.split('#', 1)[0].replace('suite ', '').strip()
+                elif line.startswith('# edit ECF_DATE'):
+                    suite_date = (
+                        line.replace('# edit ECF_DATE', '').replace("'", '').strip()
+                    )
+                elif line.startswith('# edit ECF_TIME'):
+                    suite_time = (
+                        line.replace('# edit ECF_TIME', '').replace("'", '').strip()
+                        + ':00'
+                    )
+                elif line.startswith('family'):
+                    name, state = parse_family_line(line)
+                    logger.debug('found experiment "%s"', name)
+                    if name == 'experiment_launcher':
+                        logger.debug('skipping experiment launcher...')
+                        parse_family(f, state)
+                    else:
+                        experiments[name] = parse_family(f, state)
+                elif line.startswith('endsuite'):
+                    full_log = True
+                    break
     if not full_log:
         return None
     return {
@@ -358,10 +363,10 @@ def parse_suite(log_file):
 
 def to_zarr(ds, path):
     if path.exists():
-        logger.info('appending to existing zarr store "%s"', path)
+        logger.debug('appending to existing zarr store "%s"', path)
         ds.to_zarr(path, append_dim='time', mode='a', consolidated=False)
     else:
-        logger.info('creating new zarr store "%s"', path)
+        logger.debug('creating new zarr store "%s"', path)
         ds.to_zarr(path, mode='w', consolidated=False)
 
 
@@ -421,37 +426,100 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
         'units': 'minutes since 2026-01-01T00:00:00',
     }
     to_zarr(ds, path_progress)
+    return progress['experiment_type']
+
+
+def overall_progres_bar():
+    return rich.progress.Progress(
+        rich.progress.SpinnerColumn(),
+        rich.progress.TextColumn('[green]{task.description}'),
+        rich.progress.BarColumn(),
+        rich.progress.MofNCompleteColumn(),
+        rich.progress.TextColumn('•'),
+        rich.progress.TaskProgressColumn(),
+        rich.progress.TextColumn('• Elapsed:'),
+        rich.progress.TimeElapsedColumn(),
+        rich.progress.TextColumn('• Remaining:'),
+        rich.progress.TimeRemainingColumn(),
+    )
+
+
+def main_task_progress_bar():
+    return rich.progress.Progress(
+        rich.progress.TextColumn('    [cyan]{task.description}'),
+        rich.progress.BarColumn(),
+        rich.progress.MofNCompleteColumn(),
+        rich.progress.TextColumn('•'),
+        rich.progress.TaskProgressColumn(),
+    )
+
+
+def sub_task_progress_bar():
+    return rich.progress.Progress(
+        rich.progress.TextColumn('        [red]{task.description}'),
+        rich.progress.SpinnerColumn('simpleDots'),
+        rich.progress.BarColumn(),
+        rich.progress.TaskProgressColumn(),
+        rich.progress.TextColumn('• Elapsed:'),
+        rich.progress.TimeElapsedColumn(),
+        transient=True,
+    )
 
 
 def parse_log_files(wdir):
     wdir = pathlib.Path(wdir)
     path_log_in = wdir / 'log_in'
     path_log_arxiv = wdir / 'log_arxiv'
-    logger.info('building list of log files to parse')
     path_log_in.mkdir(parents=True, exist_ok=True)
     path_log_arxiv.mkdir(parents=True, exist_ok=True)
     log_files = sorted(path_log_in.glob('*.log'))
-    logger.info('waiting 2 seconds before opening log files')
-    time.sleep(2)
-    for log_file in log_files:
-        logger.info('parsing log file "%s"', log_file)
-        suite = parse_suite(log_file)
-        if suite is None:
-            logger.info('skipping log file (incomplete)')
-            continue
+    overall_progress = overall_progres_bar()
+    main_tasks = main_task_progress_bar()
+    progress_group = rich.panel.Panel(
+        rich.console.Group(
+            overall_progress,
+            main_tasks,
+        ),
+    )
+    overall_task_id = overall_progress.add_task(
+        'Parsing log files', total=len(log_files),
+    )
+    main_read_id = main_tasks.add_task('├─ Reading', total=len(log_files))
+    main_save_id = main_tasks.add_task('├─ Saving', total=len(log_files))
+    main_cleanup_id = main_tasks.add_task('└─ Clean-up', total=len(log_files))
+    with rich.live.Live(progress_group):
+        for log_file in log_files:
+            logger.debug('parsing log file "%s"', log_file)
+            suite = parse_suite(log_file)
+            main_tasks.update(main_read_id, advance=1)
+            if suite is None:
+                logger.warning('skipping log file (incomplete)')
+                main_tasks.update(main_save_id, advance=1)
+                main_tasks.update(main_cleanup_id, advance=1)
+                overall_progress.update(overall_task_id, advance=1)
+                continue
 
-        for name, experiment in suite['experiments'].items():
-            logger.info('processing experiment "%s"', name)
-            save_experiment_state(wdir, name, experiment, suite['date'])
-            save_experiment_progress(wdir, name, experiment, suite['date'])
+            active_experiments = {}
+            with sub_task_progress_bar() as sp:
+                for name, experiment in sp.track(
+                    suite['experiments'].items(), description='saving',
+                ):
+                    logger.debug('processing experiment "%s"', name)
+                    save_experiment_state(wdir, name, experiment, suite['date'])
+                    active_experiments[name] = save_experiment_progress(
+                        wdir, name, experiment, suite['date'],
+                    )
+            main_tasks.update(main_save_id, advance=1)
 
-        path_active = wdir / f'active/{suite["name"]}.txt'
-        path_active.parent.mkdir(parents=True, exist_ok=True)
-        logger.info('saving active experiment list into "%s"', path_active)
-        with pathlib.Path(path_active).open('w', encoding=None) as f:
-            for name in suite['experiments']:
-                f.write(f'{name}\n')
+            path_active = wdir / f'active/{suite["name"]}.txt'
+            path_active.parent.mkdir(parents=True, exist_ok=True)
+            logger.debug('saving active experiment list into "%s"', path_active)
+            with pathlib.Path(path_active).open('w', encoding=None) as f:
+                for name, experiment_type in active_experiments.items():
+                    f.write(f'{name}: {experiment_type}\n')
 
-        new_name = path_log_arxiv / log_file.name
-        logger.info('renaming log file into "%s"', new_name)
-        log_file.rename(new_name)
+            new_name = path_log_arxiv / log_file.name
+            logger.debug('renaming log file into "%s"', new_name)
+            log_file.rename(new_name)
+            main_tasks.update(main_cleanup_id, advance=1)
+            overall_progress.update(overall_task_id, advance=1)

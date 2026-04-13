@@ -39,7 +39,13 @@ def get_progress_experiment(ds, progress, nodes):
 
 
 def get_speed_experiment(
-    ds, progress, nodes, *, delta_t='48h', exclude_aborted=True, exclude_suspended=True,
+    ds,
+    progress,
+    nodes,
+    *,
+    delta_t='48h',
+    exclude_aborted=True,
+    exclude_suspended=True,
 ):
     delta_t = pd.Timedelta(delta_t)
     actual_delta_t = pd.Timedelta('0h')
@@ -117,7 +123,7 @@ def format_state(state):
 
 
 def format_progress(index, total):
-    return f'{index} / {total} ({100*index / total:.2f}%)'
+    return f'{index} / {total} ({100 * index / total:.2f}%)'
 
 
 def format_speed(speed):
@@ -156,10 +162,12 @@ def show_progress(wdir, experiment_type, wrt='lag'):
         table.add_row(
             experiment,
             format_state(progress['state']),
-            format_progress(progress[f"index_{wrt}"], progress["total"]),
+            format_progress(progress[f'index_{wrt}'], progress['total']),
             format_speed(progress[f'speed_{wrt}_it_day']),
             format_speed(progress[f'speed_{wrt}_day_day']),
-            format_remaining(progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}']),
+            format_remaining(
+                progress[f'speed_{wrt}_day_day'], progress[f'remaining_{wrt}'],
+            ),
             format_eta(progress[f'speed_{wrt}_day_day'], progress[f'eta_{wrt}']),
         )
     console = Console()
