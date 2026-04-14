@@ -1,33 +1,11 @@
 import logging
-import pathlib
 
 import pandas as pd
-import rich.console
-import rich.live
-import rich.panel
-import rich.progress
 import xarray as xr
 
+from watch_duck.common.state import encode_state
+
 logger = logging.getLogger(__name__)
-
-
-def encode_state(state):
-    return {
-        'complete': 0,
-        'queued': 1,
-        'active': 2,
-        'aborted': 3,
-        'suspended': 4,
-        'submitted': 5,
-    }[state]
-
-
-def get_state_family(prefix, family):
-    state = {prefix: encode_state(family['state'])}
-    if 'children' in family:
-        for key, value in family['children'].items():
-            state.update(get_state_family(f'{prefix}/{key}', value))
-    return state
 
 
 def check_frequencies(freq_00, freq_12, freq):
@@ -52,10 +30,7 @@ def current_date_to_index(progress):
 
 
 def encode_state_nodes(nodes, groups):
-    return {
-        f'state_{node}': encode_state(nodes[node]['state'])
-        for node in nodes
-    } | {
+    return {f'state_{node}': encode_state(nodes[node]['state']) for node in nodes} | {
         f'state_{node}_{group}': encode_state(nodes[node]['children'][group]['state'])
         for node in nodes
         for group in groups
@@ -72,17 +47,22 @@ def merge_progress(progress_00, progress_12, nodes, kind):
         date_end = progress_00['date_end']
         date_freq = progress_00['date_start'] - progress_12['date_start']
     check_frequencies(progress_00['date_freq'], progress_12['date_freq'], date_freq)
-    return progress_00 | progress_12 | {
-        'date_start': date_start,
-        'date_end': date_end,
-        'date_freq': date_freq,
-    } | {
-        f'current_{key}': min(
-            progress_00[f'current_{key}_{kind}00'],
-            progress_12[f'current_{key}_{kind}12'],
-        )
-        for key in nodes
-    }
+    return (
+        progress_00
+        | progress_12
+        | {
+            'date_start': date_start,
+            'date_end': date_end,
+            'date_freq': date_freq,
+        }
+        | {
+            f'current_{key}': min(
+                progress_00[f'current_{key}_{kind}00'],
+                progress_12[f'current_{key}_{kind}12'],
+            )
+            for key in nodes
+        }
+    )
 
 
 def get_progress_fc_1_experiment(nodes, group):
@@ -106,9 +86,9 @@ def get_progress_fc_1_experiment(nodes, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        f'current_ini': date_ini,
-        f'current_fc': date_fc,
-        f'current_lag': date_lag,
+        'current_ini': date_ini,
+        'current_fc': date_fc,
+        'current_lag': date_lag,
         f'current_ini_{group}': date_ini,
         f'current_fc_{group}': date_fc,
         f'current_lag_{group}': date_lag,
@@ -118,7 +98,12 @@ def get_progress_fc_1_experiment(nodes, group):
 def get_progress_fc_2_experiment(nodes):
     progress_00 = get_progress_fc_1_experiment(nodes, '00')
     progress_12 = get_progress_fc_1_experiment(nodes, '12')
-    progress = merge_progress(progress_00, progress_12, nodes=('ini', 'fc', 'lag'), kind='')
+    progress = merge_progress(
+        progress_00,
+        progress_12,
+        nodes=('ini', 'fc', 'lag'),
+        kind='',
+    )
     return progress | encode_state_nodes(nodes, groups=('00', '12'))
 
 
@@ -159,9 +144,9 @@ def get_progress_an_1_experiment(nodes, kind, group):
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        f'current_obs': date_obs,
-        f'current_main': date_main,
-        f'current_lag': date_lag,
+        'current_obs': date_obs,
+        'current_main': date_main,
+        'current_lag': date_lag,
         f'current_obs_{group}': date_obs,
         f'current_main_{group}': date_main,
         f'current_lag_{group}': date_lag,
@@ -171,7 +156,12 @@ def get_progress_an_1_experiment(nodes, kind, group):
 def get_progress_an_2_experiment(nodes, kind):
     progress_00 = get_progress_an_1_experiment(nodes, kind, f'{kind}00')
     progress_12 = get_progress_an_1_experiment(nodes, kind, f'{kind}12')
-    progress = merge_progress(progress_00, progress_12, nodes=('obs', 'main', 'lag'), kind=kind)
+    progress = merge_progress(
+        progress_00,
+        progress_12,
+        nodes=('obs', 'main', 'lag'),
+        kind=kind,
+    )
     return progress | encode_state_nodes(nodes, groups=(f'{kind}00', f'{kind}12'))
 
 
@@ -235,7 +225,10 @@ def check_an_experiment(experiment, kind):
         message = f'unexpected experiment children: "{children}"'
         raise ValueError(message)
     children = list(experiment['children']['an']['children'].keys())
-    if children != ['make', 'obs', 'main', 'lag', 'wsjobs']:
+    if children not in (
+        ['make', 'obs', 'main', 'lag', 'wsjobs'],
+        ['make', 'obs', 'prepare_aux', 'main', 'lag', 'wsjobs'],
+    ):
         message = f'unexpected experiment/an children: "{children}"'
         raise ValueError(message)
     obs_groups = list(
@@ -274,139 +267,43 @@ def get_experiment_type(experiment):
         if obs_groups in [['elda00'], ['elda12'], ['elda00', 'elda12']]:
             check_an_experiment(experiment, kind='elda')
             return 'elda'
+        if obs_groups in [
+            ['ed00', 'lw00'],
+            ['ed00', 'lw12'],
+            ['ed00', 'ed12', 'lw00', 'lw12'],
+        ]:
+            logger.debug('found edlw experiment')
+            return 'edlw'
         message = f'unexpected obs groups: "{obs_groups}"'
         raise ValueError(message)
-    message = 'unable to determine experiment type'
+    if main_type == 'opa':
+        logger.debug('found opa experiment')
+        return 'opa'
+    message = f'unable to determine experiment type for main type "{main_type}"'
     raise ValueError(message)
 
 
-def get_progress_experiment(experiment):
-    experiment_type = get_experiment_type(experiment)
+def get_progress_experiment(experiment_type, experiment):
     match experiment_type:
         case 'fc':
             progress = get_progress_fc_experiment(experiment)
         case 'lw' | 'elda':
             progress = get_progress_an_experiment(experiment, kind=experiment_type)
+        case _:
+            message = f'unexpected experiment type: "{experiment_type}"'
+            raise ValueError(message)
     return current_date_to_index(progress)
 
 
-def parse_family_line(line):
-    family_name = line.split('#', 1)[0].replace('family ', '').strip()
-    family_state = line.split('#', 1)[1].split('state:', 1)[1].split(' ', 1)[0]
-    return family_name, family_state
-
-
-def parse_task_line(line):
-    task_name = line.split('#', 1)[0].replace('task ', '').strip()
-    task_state = line.split('#', 1)[1].split('state:', 1)[1].split(' ', 1)[0]
-    return task_name, task_state
-
-
-def parse_repeat_date_line(line):
-    line = line.replace('repeat date YMD', '').strip()
-    return {
-        'ymd_start': line.split('#', 1)[0].split(' ')[0],
-        'ymd_end': line.split('#', 1)[0].split(' ')[1],
-        'ymd_freq': line.split('#', 1)[0].split(' ')[2],
-        'ymd_current': line.split('#', 1)[1].strip()
-        if '#' in line
-        else line.split('#', 1)[0].split(' ')[0],
-    }
-
-
-def parse_family(log_file, state):
-    family = {
-        'state': state,
-        'children': {},
-    }
-    for line in log_file:
-        if line.startswith('family'):
-            name, state = parse_family_line(line)
-            family['children'][name] = parse_family(log_file, state)
-        elif line.startswith('task'):
-            name, state = parse_task_line(line)
-            family['children'][name] = {'state': state}
-        elif line.startswith('repeat date YMD'):
-            family.update(parse_repeat_date_line(line))
-        elif line.startswith('endfamily'):
-            break
-    return family
-
-
-def parse_suite(log_file):
-    full_log = False
-    with sub_task_progress_bar() as sp:  # noqa: SIM117
-        with sp.open(log_file, mode='r', encoding=None, description='reading') as f:
-            experiments = {}
-            for line in f:
-                if line.startswith('suite'):
-                    suite_name = line.split('#', 1)[0].replace('suite ', '').strip()
-                elif line.startswith('# edit ECF_DATE'):
-                    suite_date = (
-                        line.replace('# edit ECF_DATE', '').replace("'", '').strip()
-                    )
-                elif line.startswith('# edit ECF_TIME'):
-                    suite_time = (
-                        line.replace('# edit ECF_TIME', '').replace("'", '').strip()
-                        + ':00'
-                    )
-                elif line.startswith('family'):
-                    name, state = parse_family_line(line)
-                    logger.debug('found experiment "%s"', name)
-                    if name == 'experiment_launcher':
-                        logger.debug('skipping experiment launcher...')
-                        parse_family(f, state)
-                    else:
-                        experiments[name] = parse_family(f, state)
-                elif line.startswith('endsuite'):
-                    full_log = True
-                    break
-    if not full_log:
-        return None
-    return {
-        'name': suite_name,
-        'date': pd.Timestamp(suite_date) + pd.Timedelta(suite_time),
-        'experiments': experiments,
-    }
-
-
-def to_zarr(ds, path):
-    if path.exists():
-        logger.debug('appending to existing zarr store "%s"', path)
-        ds.to_zarr(path, append_dim='time', mode='a', consolidated=False)
-    else:
-        logger.debug('creating new zarr store "%s"', path)
-        ds.to_zarr(path, mode='w', consolidated=False)
-
-
-def save_experiment_state(wdir, name, experiment, date, chunk_size=16):
-    path_state = wdir / f'state/{name}.zarr'
-    path_state.parent.mkdir(parents=True, exist_ok=True)
-    state = get_state_family(name, experiment)
-    ds = xr.Dataset(
-        data_vars={
-            'state': (('node',), list(state.values())),
-        },
-        coords={
-            'node': (('node',), list(state.keys())),
-        },
-    ).expand_dims(time=[date])
-    # temporary fix for zarr v3 issue with strings
-    ds['node'] = ds['node'].astype('O')
-    # chunking in time
-    ds['state'].encoding['chunks'] = (chunk_size, len(ds.node))
-    # encoding for time
-    ds['time'].encoding = {
-        'dtype': 'int64',
-        'units': 'minutes since 2026-01-01T00:00:00',
-    }
-    to_zarr(ds, path_state)
-
-
-def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
-    path_progress = wdir / f'progress/{name}.zarr'
-    path_progress.parent.mkdir(parents=True, exist_ok=True)
-    progress = get_progress_experiment(experiment)
+def save_experiment_progress(
+    wdir,
+    name,
+    experiment_type,
+    experiment,
+    date,
+    chunk_size,
+):
+    progress = get_progress_experiment(experiment_type, experiment)
     ds = xr.Dataset(
         data_vars={
             key: (('time',), [value])
@@ -434,101 +331,4 @@ def save_experiment_progress(wdir, name, experiment, date, chunk_size=128):
         'dtype': 'int64',
         'units': 'minutes since 2026-01-01T00:00:00',
     }
-    to_zarr(ds, path_progress)
-    return progress['experiment_type']
-
-
-def overall_progres_bar():
-    return rich.progress.Progress(
-        rich.progress.SpinnerColumn(),
-        rich.progress.TextColumn('[green]{task.description}'),
-        rich.progress.BarColumn(),
-        rich.progress.MofNCompleteColumn(),
-        rich.progress.TextColumn('•'),
-        rich.progress.TaskProgressColumn(),
-        rich.progress.TextColumn('• Elapsed:'),
-        rich.progress.TimeElapsedColumn(),
-        rich.progress.TextColumn('• Remaining:'),
-        rich.progress.TimeRemainingColumn(),
-    )
-
-
-def main_task_progress_bar():
-    return rich.progress.Progress(
-        rich.progress.TextColumn('    [cyan]{task.description}'),
-        rich.progress.BarColumn(),
-        rich.progress.MofNCompleteColumn(),
-        rich.progress.TextColumn('•'),
-        rich.progress.TaskProgressColumn(),
-    )
-
-
-def sub_task_progress_bar():
-    return rich.progress.Progress(
-        rich.progress.TextColumn('        [red]{task.description}'),
-        rich.progress.SpinnerColumn('simpleDots'),
-        rich.progress.BarColumn(),
-        rich.progress.TaskProgressColumn(),
-        rich.progress.TextColumn('• Elapsed:'),
-        rich.progress.TimeElapsedColumn(),
-        transient=True,
-    )
-
-
-def parse_log_files(wdir):
-    wdir = pathlib.Path(wdir)
-    path_log_in = wdir / 'log_in'
-    path_log_arxiv = wdir / 'log_arxiv'
-    path_log_in.mkdir(parents=True, exist_ok=True)
-    path_log_arxiv.mkdir(parents=True, exist_ok=True)
-    log_files = sorted(path_log_in.glob('*.log'))
-    overall_progress = overall_progres_bar()
-    main_tasks = main_task_progress_bar()
-    progress_group = rich.panel.Panel(
-        rich.console.Group(
-            overall_progress,
-            main_tasks,
-        ),
-    )
-    overall_task_id = overall_progress.add_task(
-        'Parsing log files', total=len(log_files),
-    )
-    main_read_id = main_tasks.add_task('├─ Reading', total=len(log_files))
-    main_save_id = main_tasks.add_task('├─ Saving', total=len(log_files))
-    main_cleanup_id = main_tasks.add_task('└─ Clean-up', total=len(log_files))
-    with rich.live.Live(progress_group):
-        for log_file in log_files:
-            logger.debug('parsing log file "%s"', log_file)
-            suite = parse_suite(log_file)
-            main_tasks.update(main_read_id, advance=1)
-            if suite is None:
-                logger.warning('skipping log file (incomplete)')
-                main_tasks.update(main_save_id, advance=1)
-                main_tasks.update(main_cleanup_id, advance=1)
-                overall_progress.update(overall_task_id, advance=1)
-                continue
-
-            active_experiments = {}
-            with sub_task_progress_bar() as sp:
-                for name, experiment in sp.track(
-                    suite['experiments'].items(), description='saving',
-                ):
-                    logger.debug('processing experiment "%s"', name)
-                    save_experiment_state(wdir, name, experiment, suite['date'])
-                    active_experiments[name] = save_experiment_progress(
-                        wdir, name, experiment, suite['date'],
-                    )
-            main_tasks.update(main_save_id, advance=1)
-
-            path_active = wdir / f'active/{suite["name"]}.txt'
-            path_active.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug('saving active experiment list into "%s"', path_active)
-            with pathlib.Path(path_active).open('w', encoding=None) as f:
-                for name, experiment_type in active_experiments.items():
-                    f.write(f'{name}: {experiment_type}\n')
-
-            new_name = path_log_arxiv / log_file.name
-            logger.debug('renaming log file into "%s"', new_name)
-            log_file.rename(new_name)
-            main_tasks.update(main_cleanup_id, advance=1)
-            overall_progress.update(overall_task_id, advance=1)
+    wdir.save_experiment_progress(name, ds)

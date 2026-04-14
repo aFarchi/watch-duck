@@ -56,6 +56,7 @@ watch-duck = { path = ".", editable = true }
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
 parse = "watch-duck parse"
+summary = "watch-duck summary"
 
 [tool.pixi.dependencies]
 numpy = ">=2.4.3,<3"

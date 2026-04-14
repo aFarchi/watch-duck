@@ -1,12 +1,20 @@
 import logging
+import pathlib
+import tomllib
 
 import rich.logging
 import rich_click as click
 
 import watch_duck.parse
-import watch_duck.show
+import watch_duck.report
 
 logger = logging.getLogger(__name__)
+
+
+def get_config():
+    config_file = pathlib.Path('~').expanduser() / '.config/watch-duck.toml'
+    with pathlib.Path(config_file).open('rb') as f:
+        return tomllib.load(f)
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
@@ -20,15 +28,23 @@ def cli():
 
 
 @cli.command(name='parse')
-@click.argument('wdir', type=click.Path(exists=True, file_okay=False))
-def parse_log_files(wdir):
+def parse_log_files():
     """Parse log files in the specified directory."""
-    logger.info('Parsing log files in directory: "%s"', wdir)
-    watch_duck.parse.parse_log_files(wdir)
+    config = get_config()
+    watch_duck.parse.parse_log_files(
+        **config['main'],
+        **config['parse'],
+    )
 
 
-@cli.command(name='show')
-@click.argument('wdir', type=click.Path(exists=True, file_okay=False))
+@cli.command(name='summary')
+@click.option(
+    '--suite',
+    '-s',
+    type=str,
+    default='daaf',
+    help='Suite to show (default: "daaf")',
+)
 @click.option(
     '--experiment-type',
     '-t',
@@ -37,16 +53,22 @@ def parse_log_files(wdir):
     help='Experiment type to show (default: "fc")',
 )
 @click.option(
-    '--wrt',
-    '-w',
+    '--family',
+    '-f',
     type=click.Choice(['ini', 'obs', 'fc', 'main', 'lag']),
     default='lag',
     help='Node to show progress with respect to (default: "lag")',
 )
-def show_progress(wdir, experiment_type, wrt):
+def show_summary(suite, experiment_type, family):
     """Show progress of the active experiments."""
-    logger.info('Showing progress of the active experiments in directory: "%s"', wdir)
-    watch_duck.show.show_progress(wdir, experiment_type, wrt)
+    config = get_config()
+    watch_duck.report.show_summary(
+        suite=suite,
+        experiment_type=experiment_type,
+        family=family,
+        **config['main'],
+        **config['summary'],
+    )
 
 
 if __name__ == '__main__':
