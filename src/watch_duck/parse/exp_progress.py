@@ -276,9 +276,10 @@ def get_experiment_type(experiment):
             return 'edlw'
         message = f'unexpected obs groups: "{obs_groups}"'
         raise ValueError(message)
-    if main_type == 'opa':
-        logger.debug('found opa experiment')
-        return 'opa'
+    for ignored_type in ('opa', 'createfws', 'eps_nemo'):
+        if main_type == ignored_type:
+            logger.debug(f'found {ignored_type} experiment')
+            return ignored_type
     message = f'unable to determine experiment type for main type "{main_type}"'
     raise ValueError(message)
 
