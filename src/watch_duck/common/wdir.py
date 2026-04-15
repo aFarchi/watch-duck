@@ -31,6 +31,9 @@ class WorkingDirectory:
         path_active = self.wdir / f'active/{name}.txt'
         path_active.parent.mkdir(parents=True, exist_ok=True)
         return path_active
+    
+    def get_all_active_paths(self):
+        return sorted(self.wdir.glob('active/*.txt'))
 
     def save_active_experiments(self, name, active_experiments):
         path_active = self.get_active_path(name)
@@ -39,15 +42,19 @@ class WorkingDirectory:
                 f.write(f'{experiment_name}: {experiment_type}\n')
 
     def get_active_experiments(self, name, experiment_type):
-        path_active = self.get_active_path(name)
+        if name is None:
+            path_active_files = self.get_all_active_paths()
+        else:
+            path_active_files = [self.get_active_path(name)]
         experiments = []
-        with path_active.open('r', encoding=None) as file:
-            for line in file:
-                name, the_type = line.strip().split(': ')
-                if the_type == experiment_type:
-                    experiments.append(name)
+        for path_active in path_active_files:
+            with path_active.open('r', encoding=None) as file:
+                for line in file:
+                    experiment_name, the_type = line.strip().split(': ')
+                    if experiment_type is None or the_type == experiment_type:
+                        experiments.append(experiment_name)
         return experiments
-
+    
     def archive_log_file(self, log_file):
         new_name = self.path_log_arxiv / log_file.name
         log_file.rename(new_name)
@@ -65,3 +72,7 @@ class WorkingDirectory:
     def get_experiment_progress(self, name):
         path_progress = self.wdir / f'progress/{name}.zarr'
         return xr.open_zarr(path_progress, consolidated=False).load()
+    
+    def get_summary_path(self):
+        path_summary = self.wdir / 'summary.csv'
+        return path_summary

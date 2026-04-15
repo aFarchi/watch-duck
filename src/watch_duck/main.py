@@ -37,7 +37,12 @@ def parse_log_files():
     )
 
 
-@cli.command(name='summary')
+@cli.group(name='summary')
+def summary():
+    pass
+
+
+@summary.command(name='show')
 @click.option(
     '--suite',
     '-s',
@@ -66,6 +71,16 @@ def show_summary(suite, experiment_type, family):
         suite=suite,
         experiment_type=experiment_type,
         family=family,
+        **config['main'],
+        **config['summary'],
+    )
+
+
+@summary.command(name='save')
+def save_summary():
+    """Save progress of the active experiments."""
+    config = get_config()
+    watch_duck.report.save_summary(
         **config['main'],
         **config['summary'],
     )

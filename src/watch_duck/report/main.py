@@ -1,3 +1,4 @@
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
 
@@ -56,3 +57,22 @@ Progress with respect to "{family}"''',
         )
     console = Console()
     console.print(table)
+
+
+def save_summary(
+    wdir,
+    delta_t,
+    exclude_aborted,
+    exclude_suspended,
+):
+    wdir = WorkingDirectory(wdir)
+    summary = get_summary(
+        wdir=wdir,
+        delta_t=delta_t,
+        exclude_aborted=exclude_aborted,
+        exclude_suspended=exclude_suspended,
+        suite=None,
+        experiment_type=None,
+    )
+    df = pd.DataFrame(summary).T
+    df.to_csv(wdir.get_summary_path())
