@@ -8,8 +8,6 @@ import rich_click as click
 import watch_duck.parse
 import watch_duck.report
 
-logger = logging.getLogger(__name__)
-
 
 def get_config():
     config_file = pathlib.Path('~').expanduser() / '.config/watch-duck.toml'

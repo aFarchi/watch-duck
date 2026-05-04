@@ -25,6 +25,7 @@ def save_experiment(
         ):
             if name in exclude_experiments:
                 continue
+            logger.debug(f'scanning experiment {suite["name"]}/{name}')
             experiment_type = get_experiment_type(experiment)
             if experiment_type in exclude_experiment_types:
                 continue

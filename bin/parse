@@ -1,13 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=parse
 #SBATCH --qos=nf
-#SBATCH --time=00:30:00
+#SBATCH --time=00:10:00
 #SBATCH --output=/perm/daaf/ecflow/slurm/%x.%j.log
 #SBATCH --error=/perm/daaf/ecflow/slurm/%x.%j.log
 
 module load tykky
 tykky activate wd
+echo ''
 watch-duck parse
+echo ''
 watch-duck summary save
+echo ''
 cd /perm/daaf/ecflow
 sitesctl site --space daaf --name iver content upload --source summary.csv --yes
