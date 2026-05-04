@@ -184,15 +184,15 @@ def get_progress_an_experiment(experiment, kind):
 def check_fc_experiment(experiment):
     children = list(experiment['children'].keys())
     if children != ['fc', 'cancel']:
-        logger.debug(f'unexpected experiment children: "{children}"')
+        logger.debug('unexpected experiment children: "%s"', children)
         return False
     children = list(experiment['children']['fc']['children'].keys())
     if children != ['make', 'main', 'lag']:
-        logger.debug(f'unexpected experiment/fc children: "{children}"')
+        logger.debug('unexpected experiment/fc children: "%s"', children)
         return False
     children = list(experiment['children']['fc']['children']['main']['children'].keys())
     if children != ['inigroup', 'fcgroup']:
-        logger.debug(f'unexpected experiment/fc/main children: "{children}"')
+        logger.debug('unexpected experiment/fc/main children: "%s"', children)
         return False
     ini_groups = list(
         experiment['children']['fc']['children']['main']['children']['inigroup'][
@@ -208,14 +208,19 @@ def check_fc_experiment(experiment):
         experiment['children']['fc']['children']['lag']['children'].keys(),
     )
     if ini_groups != fc_groups or ini_groups != lag_groups:
-        logger.debug(f"""ini, fc, and lag groups should have the same children:
-    ini_groups={ini_groups},
-    fc_groups={fc_groups},
-    lag_groups={lag_groups}
-""")
+        logger.debug(
+            """ini, fc, and lag groups should have the same children:
+    ini_groups=%s,
+    fc_groups=%s,
+    lag_groups=%s
+""",
+            ini_groups,
+            fc_groups,
+            lag_groups,
+        )
         return False
     if ini_groups not in [['00'], ['12'], ['00', '12']]:
-        logger.debug(f'unexpected groups: "{ini_groups}"')
+        logger.debug('unexpected groups: "%s"', ini_groups)
         return False
     return True
 
@@ -223,15 +228,19 @@ def check_fc_experiment(experiment):
 def check_fc50_experiment(experiment):
     children = list(experiment['children'].keys())
     if children != ['fc', 'cancel']:
-        logger.debug(f'unexpected experiment children: "{children}"')
+        logger.debug('unexpected experiment children: "%s"', children)
         return False
     children = list(experiment['children']['fc']['children'].keys())
     if children != ['make', 'main', 'lag']:
-        logger.debug(f'unexpected experiment/fc children: "{children}"')
+        logger.debug('unexpected experiment/fc children: "%s"', children)
         return False
     children = list(experiment['children']['fc']['children']['main']['children'].keys())
     if children != ['inigroup', 'fcgroup']:
-        logger.debug(f'unexpected experiment/fc/main children: "{children}"')
+        logger.debug('unexpected experiment/fc/main children: "%s"', children)
+        return False
+    children = list(experiment['children']['fc']['children']['lag']['children'].keys())
+    if 'logfiles' not in children:
+        logger.debug('unexpected experiment/fc/lag children: "%s"', children)
         return False
     return True
 
@@ -239,14 +248,14 @@ def check_fc50_experiment(experiment):
 def check_an_experiment(experiment, kind):
     children = list(experiment['children'].keys())
     if children != ['an', 'cancel']:
-        logger.debug(f'unexpected experiment children: "{children}"')
+        logger.debug('unexpected experiment children: "%s"', children)
         return False
     children = list(experiment['children']['an']['children'].keys())
     if children not in (
         ['make', 'obs', 'main', 'lag', 'wsjobs'],
         ['make', 'obs', 'prepare_aux', 'main', 'lag', 'wsjobs'],
     ):
-        logger.debug(f'unexpected experiment/an children: "{children}"')
+        logger.debug('unexpected experiment/an children: "%s"', children)
         return False
     obs_groups = list(
         experiment['children']['an']['children']['obs']['children'].keys(),
@@ -258,24 +267,29 @@ def check_an_experiment(experiment, kind):
         experiment['children']['an']['children']['lag']['children'].keys(),
     )
     if obs_groups != main_groups or obs_groups != lag_groups:
-        logger.debug(f"""obs, main, and lag groups should have the same children:
-    obs_groups={obs_groups},
-    main_groups={main_groups},
-    lag_groups={lag_groups}
-""")
+        logger.debug(
+            """obs, main, and lag groups should have the same children:
+    obs_groups=%s,
+    main_groups=%s,
+    lag_groups=%s
+""",
+            obs_groups,
+            main_groups,
+            lag_groups,
+        )
         return False
     if obs_groups not in [[f'{kind}00'], [f'{kind}12'], [f'{kind}00', f'{kind}12']]:
-        logger.debug(f'unexpected groups: "{obs_groups}"')
+        logger.debug('unexpected groups: "%s"', obs_groups)
         return False
     return True
 
 
 def get_experiment_type(experiment):
     main_type = next(iter(experiment['children'].keys()))
-    if main_type == 'fc' and check_fc50_experiment(experiment):
-        return 'fc50'
     if main_type == 'fc' and check_fc_experiment(experiment):
         return 'fc'
+    if main_type == 'fc' and check_fc50_experiment(experiment):
+        return 'fc50'
     if main_type == 'an' and check_an_experiment(experiment, kind='lw'):
         return 'lw'
     if main_type == 'an' and check_an_experiment(experiment, kind='elda'):
