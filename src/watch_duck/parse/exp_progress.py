@@ -22,7 +22,7 @@ def current_date_to_index(progress):
     date_start = progress['date_start']
     date_freq = progress['date_freq']
     return {
-        key: value
+        key.replace('current_', 'index_'): value
         if not key.startswith('current_')
         else (value - date_start) // date_freq
         for key, value in progress.items()
@@ -67,31 +67,39 @@ def merge_progress(progress_00, progress_12, nodes, kind):
 
 def get_progress_fc_1_experiment(nodes, group):
     step = int(group) * pd.Timedelta('1h')
-    date_start = pd.Timestamp(nodes['ini']['children'][group]['ymd_start']) + step
-    date_end = pd.Timestamp(nodes['ini']['children'][group]['ymd_end']) + step
-    date_freq = int(nodes['ini']['children'][group]['ymd_freq']) * pd.Timedelta('1D')
-    date_ini = pd.Timestamp(nodes['ini']['children'][group]['ymd_current']) + step
-    date_fc = pd.Timestamp(nodes['fc']['children'][group]['ymd_current']) + step
-    date_lag = pd.Timestamp(nodes['lag']['children'][group]['ymd_current']) + step
-    if nodes['ini']['children'][group]['state'] == 'complete':
+    date_start = (
+        pd.Timestamp(nodes['preprocess']['children'][group]['ymd_start']) + step
+    )
+    date_end = pd.Timestamp(nodes['preprocess']['children'][group]['ymd_end']) + step
+    date_freq = int(nodes['preprocess']['children'][group]['ymd_freq']) * pd.Timedelta(
+        '1D',
+    )
+    date_ini = (
+        pd.Timestamp(nodes['preprocess']['children'][group]['ymd_current']) + step
+    )
+    date_fc = pd.Timestamp(nodes['main']['children'][group]['ymd_current']) + step
+    date_lag = (
+        pd.Timestamp(nodes['postprocess']['children'][group]['ymd_current']) + step
+    )
+    if nodes['preprocess']['children'][group]['state'] == 'complete':
         date_ini += date_freq
-        nodes['ini']['children'][group]['state'] = 'queued'
-    if nodes['fc']['children'][group]['state'] == 'complete':
+        nodes['preprocess']['children'][group]['state'] = 'queued'
+    if nodes['main']['children'][group]['state'] == 'complete':
         date_fc += date_freq
-        nodes['fc']['children'][group]['state'] = 'queued'
-    if nodes['lag']['children'][group]['state'] == 'complete':
+        nodes['main']['children'][group]['state'] = 'queued'
+    if nodes['postprocess']['children'][group]['state'] == 'complete':
         date_lag += date_freq
-        nodes['lag']['children'][group]['state'] = 'queued'
+        nodes['postprocess']['children'][group]['state'] = 'queued'
     return {
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        'current_ini': date_ini,
-        'current_fc': date_fc,
-        'current_lag': date_lag,
-        f'current_ini_{group}': date_ini,
-        f'current_fc_{group}': date_fc,
-        f'current_lag_{group}': date_lag,
+        'current_preprocess': date_ini,
+        'current_main': date_fc,
+        'current_postprocess': date_lag,
+        f'current_preprocess_{group}': date_ini,
+        f'current_main_{group}': date_fc,
+        f'current_postprocess_{group}': date_lag,
     } | encode_state_nodes(nodes, groups=[group])
 
 
@@ -101,7 +109,7 @@ def get_progress_fc_2_experiment(nodes):
     progress = merge_progress(
         progress_00,
         progress_12,
-        nodes=('ini', 'fc', 'lag'),
+        nodes=('preprocess', 'main', 'postprocess'),
         kind='',
     )
     return progress | encode_state_nodes(nodes, groups=('00', '12'))
@@ -109,11 +117,13 @@ def get_progress_fc_2_experiment(nodes):
 
 def get_progress_fc_experiment(experiment):
     nodes = {
-        'ini': experiment['children']['fc']['children']['main']['children']['inigroup'],
-        'fc': experiment['children']['fc']['children']['main']['children']['fcgroup'],
-        'lag': experiment['children']['fc']['children']['lag'],
+        'preprocess': experiment['children']['fc']['children']['main']['children'][
+            'inigroup'
+        ],
+        'main': experiment['children']['fc']['children']['main']['children']['fcgroup'],
+        'postprocess': experiment['children']['fc']['children']['lag'],
     }
-    groups = list(nodes['ini']['children'].keys())
+    groups = list(nodes['preprocess']['children'].keys())
     if len(groups) == 1:
         progress = get_progress_fc_1_experiment(nodes, groups[0])
     else:
@@ -125,31 +135,39 @@ def get_progress_fc_experiment(experiment):
 
 def get_progress_an_1_experiment(nodes, kind, group):
     step = int(group[len(kind) :]) * pd.Timedelta('1h')
-    date_start = pd.Timestamp(nodes['obs']['children'][group]['ymd_start']) + step
-    date_end = pd.Timestamp(nodes['obs']['children'][group]['ymd_end']) + step
-    date_freq = int(nodes['obs']['children'][group]['ymd_freq']) * pd.Timedelta('1D')
-    date_obs = pd.Timestamp(nodes['obs']['children'][group]['ymd_current']) + step
+    date_start = (
+        pd.Timestamp(nodes['preprocess']['children'][group]['ymd_start']) + step
+    )
+    date_end = pd.Timestamp(nodes['preprocess']['children'][group]['ymd_end']) + step
+    date_freq = int(nodes['preprocess']['children'][group]['ymd_freq']) * pd.Timedelta(
+        '1D',
+    )
+    date_obs = (
+        pd.Timestamp(nodes['preprocess']['children'][group]['ymd_current']) + step
+    )
     date_main = pd.Timestamp(nodes['main']['children'][group]['ymd_current']) + step
-    date_lag = pd.Timestamp(nodes['lag']['children'][group]['ymd_current']) + step
-    if nodes['obs']['children'][group]['state'] == 'complete':
+    date_lag = (
+        pd.Timestamp(nodes['postprocess']['children'][group]['ymd_current']) + step
+    )
+    if nodes['preprocess']['children'][group]['state'] == 'complete':
         date_obs += date_freq
-        nodes['obs']['children'][group]['state'] = 'queued'
+        nodes['preprocess']['children'][group]['state'] = 'queued'
     if nodes['main']['children'][group]['state'] == 'complete':
         date_main += date_freq
         nodes['main']['children'][group]['state'] = 'queued'
-    if nodes['lag']['children'][group]['state'] == 'complete':
+    if nodes['postprocess']['children'][group]['state'] == 'complete':
         date_lag += date_freq
-        nodes['lag']['children'][group]['state'] = 'queued'
+        nodes['postprocess']['children'][group]['state'] = 'queued'
     return {
         'date_start': date_start,
         'date_end': date_end,
         'date_freq': date_freq,
-        'current_obs': date_obs,
+        'current_preprocess': date_obs,
         'current_main': date_main,
-        'current_lag': date_lag,
-        f'current_obs_{group}': date_obs,
+        'current_postprocess': date_lag,
+        f'current_preprocess_{group}': date_obs,
         f'current_main_{group}': date_main,
-        f'current_lag_{group}': date_lag,
+        f'current_postprocess_{group}': date_lag,
     } | encode_state_nodes(nodes, groups=[group])
 
 
@@ -159,7 +177,7 @@ def get_progress_an_2_experiment(nodes, kind):
     progress = merge_progress(
         progress_00,
         progress_12,
-        nodes=('obs', 'main', 'lag'),
+        nodes=('preprocess', 'main', 'postprocess'),
         kind=kind,
     )
     return progress | encode_state_nodes(nodes, groups=(f'{kind}00', f'{kind}12'))
@@ -167,15 +185,19 @@ def get_progress_an_2_experiment(nodes, kind):
 
 def get_progress_an_experiment(experiment, kind):
     nodes = {
-        'obs': experiment['children']['an']['children']['obs'],
+        'preprocess': experiment['children']['an']['children']['obs'],
         'main': experiment['children']['an']['children']['main'],
-        'lag': experiment['children']['an']['children']['lag'],
+        'postprocess': experiment['children']['an']['children']['lag'],
     }
-    groups = list(nodes['obs']['children'].keys())
+    groups = list(nodes['preprocess']['children'].keys())
     if len(groups) == 1:
         progress = get_progress_an_1_experiment(nodes, kind, groups[0])
     else:
         progress = get_progress_an_2_experiment(nodes, kind)
+    progress = {
+        key.replace(f'_{kind}00', '_00').replace(f'_{kind}12', '_12'): value
+        for key, value in progress.items()
+    }
     progress['state'] = encode_state(experiment['state'])
     progress['experiment_type'] = kind
     return progress
@@ -306,7 +328,14 @@ def get_progress_experiment(experiment_type, experiment):
         case _:
             message = f'unexpected experiment type: "{experiment_type}"'
             raise ValueError(message)
-    return current_date_to_index(progress)
+    progress = current_date_to_index(progress)
+    if len(progress) == 17:
+        progress = {
+            key: value
+            for key, value in progress.items()
+            if not key.endswith(('_00', '_12'))
+        }
+    return progress
 
 
 def save_experiment_progress(
@@ -315,6 +344,7 @@ def save_experiment_progress(
     experiment_type,
     experiment,
     date,
+    suite,
     chunk_size,
 ):
     progress = get_progress_experiment(experiment_type, experiment)
@@ -322,7 +352,7 @@ def save_experiment_progress(
         data_vars={
             key: (('time',), [value])
             for key, value in progress.items()
-            if 'current' in key or 'state' in key
+            if 'index' in key or 'state' in key
         },
         coords={
             'time': (('time',), [date]),
@@ -334,11 +364,12 @@ def save_experiment_progress(
         | {
             'date_freq': int(progress['date_freq'].total_seconds()) // 3600,
             'experiment_type': progress['experiment_type'],
+            'suite': suite,
         },
     )
     # chunking in time
     for key in progress:
-        if 'current' in key or 'state' in key:
+        if 'index' in key or 'state' in key:
             ds[key].encoding['chunks'] = (chunk_size,)
     # encoding for time
     ds['time'].encoding = {

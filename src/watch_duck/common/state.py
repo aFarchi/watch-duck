@@ -11,6 +11,7 @@ def encode_state(state):
 
 def decode_state(state):
     return {
+        -1: 'unknown',
         0: 'complete',
         1: 'queued',
         2: 'active',

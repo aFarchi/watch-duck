@@ -7,6 +7,7 @@ import rich_click as click
 
 import watch_duck.parse
 import watch_duck.report
+import watch_duck.summary
 
 
 def get_config():
@@ -35,50 +36,44 @@ def parse_log_files():
     )
 
 
-@cli.group(name='summary')
-def summary():
-    pass
+@cli.command(name='report')
+def write_report():
+    """Write progress report of the active experiments."""
+    config = get_config()
+    watch_duck.report.write_report(
+        **config['main'],
+    )
 
 
-@summary.command(name='show')
+@cli.command(name='summary')
 @click.option(
     '--suite',
     '-s',
     type=str,
-    default='daaf',
-    help='Suite to show (default: "daaf")',
+    default='all',
+    help='Suite to show (default: "all")',
 )
 @click.option(
     '--experiment-type',
     '-t',
-    type=click.Choice(['fc', 'lw', 'elda']),
-    default='fc',
-    help='Experiment type to show (default: "fc")',
+    type=click.Choice(['fc', 'lw', 'elda', 'all']),
+    default='all',
+    help='Experiment type to show (default: "all")',
 )
 @click.option(
     '--family',
     '-f',
-    type=click.Choice(['ini', 'obs', 'fc', 'main', 'lag']),
-    default='lag',
-    help='Node to show progress with respect to (default: "lag")',
+    type=click.Choice(['preprocess', 'main', 'postprocess']),
+    default='postprocess',
+    help='Family to show progress with respect to (default: "postprocess")',
 )
 def show_summary(suite, experiment_type, family):
     """Show progress of the active experiments."""
     config = get_config()
-    watch_duck.report.show_summary(
+    watch_duck.summary.show_summary(
         suite=suite,
         experiment_type=experiment_type,
         family=family,
-        **config['main'],
-        **config['summary'],
-    )
-
-
-@summary.command(name='save')
-def save_summary():
-    """Save progress of the active experiments."""
-    config = get_config()
-    watch_duck.report.save_summary(
         **config['main'],
         **config['summary'],
     )

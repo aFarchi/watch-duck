@@ -25,7 +25,7 @@ def save_experiment(
         ):
             if name in exclude_experiments:
                 continue
-            logger.info('scanning experiment %s/%s', suite['name'], name)
+            logger.debug('scanning experiment %s/%s', suite['name'], name)
             experiment_type = get_experiment_type(experiment)
             if experiment_type in exclude_experiment_types:
                 continue
@@ -42,6 +42,7 @@ def save_experiment(
                 experiment_type,
                 experiment,
                 suite['date'],
+                suite['name'],
                 chunk_size_progress,
             )
             active_experiments[name] = experiment_type

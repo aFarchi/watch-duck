@@ -10,7 +10,7 @@ tykky activate wd
 echo ''
 watch-duck parse
 echo ''
-watch-duck summary save
+watch-duck report
 echo ''
 cd /perm/daaf/ecflow
-sitesctl site --space daaf --name iver content upload --source summary.csv --yes
+sitesctl site --space daaf --name iver content upload --source report.h5 --yes

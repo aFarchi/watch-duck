@@ -73,5 +73,14 @@ class WorkingDirectory:
         path_progress = self.wdir / f'progress/{name}.zarr'
         return xr.open_zarr(path_progress, consolidated=False).load()
 
-    def get_summary_path(self):
-        return self.wdir / 'summary.csv'
+    def save_report(self, ds):
+        path_report = self.wdir / 'report.h5'
+        path_report.parent.mkdir(parents=True, exist_ok=True)
+        ds.to_netcdf(path_report, engine='h5netcdf')
+
+    def get_report(self):
+        path_report = self.wdir / 'report.h5'
+        if not path_report.exists():
+            message = f'Report file does not exist: {path_report}'
+            raise FileNotFoundError(message)
+        return xr.open_dataset(path_report, engine='h5netcdf').load()
