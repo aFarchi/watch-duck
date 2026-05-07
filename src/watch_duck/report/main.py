@@ -1,12 +1,16 @@
+import logging
+
 import pandas as pd
 import xarray as xr
 
 from watch_duck.common.live_progress import overall_progres_bar
 from watch_duck.common.wdir import WorkingDirectory
 
+logger = logging.getLogger(__name__)
+
 
 def get_experiment_report(wdir, experiment, now):
-    ds = wdir.get_experiment_progress(experiment)
+    ds = wdir.get_experiment_progress(experiment).isel(time=slice(-256, None)).load()
     dr = pd.date_range(end=now, freq='1h', periods=241)
     ds = ds.reindex(time=dr, method='nearest', tolerance='30m').ffill(dim='time')
     ds = ds.drop_vars(

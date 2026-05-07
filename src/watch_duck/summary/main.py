@@ -77,7 +77,7 @@ def show_summary(
     exclude_suspended,
 ):
     wdir = WorkingDirectory(wdir)
-    report = wdir.get_report()
+    report = wdir.get_report().load()
     if suite != 'all':
         report = report.where(report.suite == suite, drop=True)
     if experiment_type != 'all':

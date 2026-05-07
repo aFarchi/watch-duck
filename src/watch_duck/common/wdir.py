@@ -71,7 +71,7 @@ class WorkingDirectory:
 
     def get_experiment_progress(self, name):
         path_progress = self.wdir / f'progress/{name}.zarr'
-        return xr.open_zarr(path_progress, consolidated=False).load()
+        return xr.open_zarr(path_progress, consolidated=False)
 
     def save_report(self, ds):
         path_report = self.wdir / 'report.h5'
@@ -83,4 +83,4 @@ class WorkingDirectory:
         if not path_report.exists():
             message = f'Report file does not exist: {path_report}'
             raise FileNotFoundError(message)
-        return xr.open_dataset(path_report, engine='h5netcdf').load()
+        return xr.open_dataset(path_report, engine='h5netcdf')

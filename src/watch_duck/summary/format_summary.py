@@ -48,7 +48,7 @@ def format_recent_past(date):
 
 
 def format_progress(index, total):
-    return f'{index} / {total} ({100 * index / total:.2f}%)'
+    return f'{int(index)} / {total} ({100 * index / total:.2f}%)'
 
 
 def format_speed(speed):

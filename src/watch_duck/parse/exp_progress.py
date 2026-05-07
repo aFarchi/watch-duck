@@ -375,5 +375,6 @@ def save_experiment_progress(
     ds['time'].encoding = {
         'dtype': 'int64',
         'units': 'minutes since 2026-01-01T00:00:00',
+        'chunks': (chunk_size,),
     }
     wdir.save_experiment_progress(name, ds)
