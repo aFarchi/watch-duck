@@ -1,0 +1,5 @@
+#!/bin/bash
+cd /Users/daaf/dev/watch-duck/wdir
+sitesctl site --space daaf --name iver content download --path report.h5 --yes
+mv daaf/iver/report.h5 .
+rm -rf daaf

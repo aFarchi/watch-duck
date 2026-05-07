@@ -57,6 +57,7 @@ watch-duck = { path = ".", editable = true }
 [tool.pixi.tasks]
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
+download = "bin/download"
 parse = "watch-duck parse"
 report = "watch-duck report"
 summary = "watch-duck summary"
