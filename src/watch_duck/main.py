@@ -8,6 +8,7 @@ import rich_click as click
 import watch_duck.parse
 import watch_duck.report
 import watch_duck.summary
+import watch_duck.iver
 
 
 def get_config():
@@ -76,6 +77,17 @@ def show_summary(suite, experiment_type, family):
         family=family,
         **config['main'],
         **config['summary'],
+    )
+
+
+@cli.command(name='iver')
+@click.argument('iver_config', type=click.Choice(['f2025']))
+def run_iver(iver_config):
+    """Run IVER with a given config on compatible experiments."""
+    config = get_config()
+    watch_duck.iver.run_iver(
+        **config['main'],
+        iver_config=iver_config,
     )
 
 

@@ -61,6 +61,7 @@ download = "bin/download"
 parse = "watch-duck parse"
 report = "watch-duck report"
 summary = "watch-duck summary"
+iver = "watch-duck iver f2025"
 
 [tool.pixi.dependencies]
 numpy = ">=2.4.3,<3"
