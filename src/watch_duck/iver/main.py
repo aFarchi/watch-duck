@@ -1,10 +1,11 @@
 import logging
 import pathlib
-import subprocess
+import subprocess  # noqa: S404
 
 import pandas as pd
 
 from watch_duck.common.wdir import WorkingDirectory
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,14 +18,19 @@ def run_iver_f2025(wdir):
     report = report.where(report.date_freq == 48, drop=True)
     report = report.where(report.index_postprocess > 0, drop=True)
     report = report.isel(time=-1).load()
-    report['date_current'] = report.date_start + pd.Timedelta('1h') * report.date_freq * (report.index_postprocess - 1)
+    report['date_current'] = report.date_start + pd.Timedelta(
+        '1h',
+    ) * report.date_freq * (report.index_postprocess - 1)
     iver = pathlib.Path(__file__).parent / 'f2025.sh'
-    for exp, date_current in zip(report.exp.to_numpy(), report.date_current.to_numpy()):
-        date_current = pd.Timestamp(date_current)
-        logger.info(f'Running IVER for {exp} until {date_current}')
-        subprocess.run(['sh', str(iver), exp, str(date_current.month), str(date_current.day)])
-    
-
+    for exp, date_current in zip(
+        report.exp.to_numpy(), report.date_current.to_numpy(), strict=True,
+    ):
+        time = pd.Timestamp(date_current)
+        logger.info('Running IVER for %s until %s', exp, time)
+        subprocess.run(  # noqa: S603
+            ['/bin/sh', str(iver), exp, str(time.month), str(time.day)],
+            check=True,
+        )
 
 
 def run_iver(wdir, iver_config):

@@ -5,10 +5,10 @@ import tomllib
 import rich.logging
 import rich_click as click
 
+import watch_duck.iver
 import watch_duck.parse
 import watch_duck.report
 import watch_duck.summary
-import watch_duck.iver
 
 
 def get_config():

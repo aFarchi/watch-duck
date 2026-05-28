@@ -23,6 +23,11 @@ version = "0.1.0"
 [project.scripts]
 watch-duck = "watch_duck.main:cli"
 
+[tool.hatch.build]
+include = [
+  "src/watch_duck/iver/*.sh",
+]
+
 [tool.ruff]
 preview = true
 
