@@ -81,7 +81,7 @@ def show_summary(suite, experiment_type, family):
 
 
 @cli.command(name='iver')
-@click.argument('iver_config', type=click.Choice(['f2025']))
+@click.argument('iver_config', type=click.Choice(['f2025', 'sf2025']))
 def run_iver(iver_config):
     """Run IVER with a given config on compatible experiments."""
     config = get_config()

@@ -16,7 +16,7 @@ end_time = julday($2,$3,2025,0,0,0)
 forecast_only = [1]
 
 grib_settings = {$
-    dbasetime_days:2,basetime:[00],$
+    dbasetime_days:6,basetime:[00],$
     air_params:['R','Q','Z','T','U','V']$
     }
 
@@ -28,7 +28,7 @@ stat_settings = {$
 
 reference = '0001'
 
-profile = 'f2025'
+profile = 'sf2025'
 
 iver,$
     exp,$
