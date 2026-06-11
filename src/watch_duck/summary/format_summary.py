@@ -12,7 +12,7 @@ def format_title(family, delta_t, exclude_aborted, exclude_suspended, last_updat
     elif exclude_suspended:
         excluding = ', excluding suspended'
     return f"""[green]Progress of the "{family}" stage (last valid {delta_t}{excluding})
-last update: {format_date(last_update)} ({format_recent_past(last_update)})[/]"""
+last update: {format_date(last_update)} UTC ({format_recent_past(last_update)})[/]"""
 
 
 def format_state(state):
@@ -35,16 +35,16 @@ def format_date(date):
 
 
 def format_recent_past(date):
-    date = pd.Timestamp(date).ceil('min')
-    now = pd.Timestamp.now().ceil('min')
+    date = pd.Timestamp(date).tz_localize('UTC').ceil('min')
+    now = pd.Timestamp.now('UTC').ceil('min')
     delta = now - date
     if delta < pd.Timedelta('1h'):
         return f'{delta.components.minutes} mins ago'
     if delta < pd.Timedelta('1d'):
-        delta = delta.ceil('h')
-        return f'{delta.components.hours} hours ago'
-    delta = delta.ceil('d')
-    return f'{delta.components.days} days ago'
+        delta = delta.total_seconds() / 3600
+        return f'{delta:.1f} hours ago'
+    delta = delta.total_seconds() / (3600 * 24)
+    return f'{delta:.1f} days ago'
 
 
 def format_progress(index, total):
@@ -58,10 +58,9 @@ def format_speed(speed):
 
 
 def format_remaining(speed, remaining):
-    remaining = pd.Timedelta(remaining).ceil('d')
     if speed > 0:
-        remaining = f'{remaining.components.days} days'
-        return f'[green]{remaining}[/]'
+        remaining = pd.Timedelta(remaining).total_seconds() / (3600 * 24)
+        return f'[green]{remaining:.1f} days[/]'
     return ''
 
 

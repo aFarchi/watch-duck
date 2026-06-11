@@ -22,7 +22,9 @@ def run_iver_f2025(wdir):
     ) * report.date_freq * (report.index_postprocess - 1)
     iver = pathlib.Path(__file__).parent / 'f2025.sh'
     for exp, date_current in zip(
-        report.exp.to_numpy(), report.date_current.to_numpy(), strict=True,
+        report.exp.to_numpy(),
+        report.date_current.to_numpy(),
+        strict=True,
     ):
         time = pd.Timestamp(date_current)
         logger.info('Running IVER for %s until %s', exp, time)
@@ -45,7 +47,9 @@ def run_iver_sf2025(wdir):
     ) * report.date_freq * (report.index_postprocess - 1)
     iver = pathlib.Path(__file__).parent / 'sf2025.sh'
     for exp, date_current in zip(
-        report.exp.to_numpy(), report.date_current.to_numpy(), strict=True,
+        report.exp.to_numpy(),
+        report.date_current.to_numpy(),
+        strict=True,
     ):
         time = pd.Timestamp(date_current)
         logger.info('Running IVER for %s until %s', exp, time)
