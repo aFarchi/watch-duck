@@ -1,6 +1,35 @@
+import numpy as np
 import pandas as pd
 
 from watch_duck.common.state import decode_state
+
+cmap_red_green_names = [
+    'red1',
+    'orange_red1',
+    'dark_orange',
+    'orange1',
+    'gold1',
+    'yellow1',
+    'yellow2',
+    'green_yellow',
+    'chartreuse1',
+    'color(82)',
+    'green1',
+]
+
+cmap_red_green_rgb = [
+    (255, 0, 0),
+    (255, 95, 0),
+    (255, 135, 0),
+    (255, 175, 0),
+    (255, 215, 0),
+    (255, 255, 0),
+    (215, 255, 0),
+    (175, 255, 0),
+    (135, 255, 0),
+    (95, 255, 0),
+    (0, 255, 0),
+]
 
 
 def format_title(family, delta_t, exclude_aborted, exclude_suspended, last_update):
@@ -34,6 +63,10 @@ def format_date(date):
     return date.strftime('%Y-%m-%d %H:%M')
 
 
+def format_date_color(color, date):
+    return f'[{color}]{format_date(date)}[/]'
+
+
 def format_recent_past(date):
     date = pd.Timestamp(date).tz_localize('UTC').ceil('min')
     now = pd.Timestamp.now('UTC').ceil('min')
@@ -47,26 +80,65 @@ def format_recent_past(date):
     return f'{delta:.1f} days ago'
 
 
-def format_progress(index, total):
-    return f'{int(index)} / {total} ({100 * index / total:.2f}%)'
+def format_progress(color, index, total, progress):
+    return f'[{color}]{index} / {total} ({progress:.2f}%)[/]'
 
 
-def format_speed(speed):
-    if speed > 0:
-        return f'[green]{speed:.2f}[/]'
-    return f'[red]{speed:.2f}[/]'
+def format_speed(color, speed):
+    return f'[{color}]{speed:.2f}[/]'
 
 
-def format_remaining(speed, remaining):
-    if speed > 0:
-        remaining = pd.Timedelta(remaining).total_seconds() / (3600 * 24)
-        return f'[green]{remaining:.1f} days[/]'
-    return ''
+def format_remaining(color, remaining):
+    remaining = pd.Timedelta(remaining).total_seconds() / (3600 * 24)
+    return f'[{color}]{remaining:.1f} days[/]'
 
 
-def format_eta(speed, eta):
+def format_eta(color, eta):
     eta = pd.Timestamp(eta).ceil('d')
-    if speed > 0:
-        eta = eta.strftime('%Y-%m-%d')
-        return f'[green]{eta}[/]'
-    return ''
+    eta = eta.strftime('%Y-%m-%d')
+    return f'[{color}]{eta}[/]'
+
+
+def format_summary_line(summary, vref_fc, vref_lw, vref_elda):
+    exp = str(summary.exp.to_numpy())
+    suite = str(summary.suite.to_numpy())
+    experiment_type = str(summary.experiment_type.to_numpy())
+    state = int(summary.state.to_numpy())
+    state = format_state(state)
+    index = int(summary.index.to_numpy())
+    total = int(summary.total.to_numpy())
+    progress = float(summary.progress.to_numpy())
+    progress_color = int(progress * (len(cmap_red_green_names) - 2))
+    progress_color = max(0, min(progress_color, len(cmap_red_green_names) - 1))
+    progress_color = cmap_red_green_names[progress_color]
+    progress = format_progress(progress_color, index, total, 100 * progress)
+    date = np.datetime64(summary.date_current.to_numpy())
+    date = format_date_color(progress_color, date)
+    speed_it_day = float(summary.speed_it_day.to_numpy())
+    vref = {'fc': vref_fc, 'lw': vref_lw, 'elda': vref_elda}[experiment_type]
+    speed_color = int(speed_it_day / vref * (len(cmap_red_green_names) - 1))
+    speed_color = max(0, min(speed_color, len(cmap_red_green_names) - 1))
+    speed_color = cmap_red_green_names[speed_color]
+    speed_day_day = float(summary.speed_day_day.to_numpy())
+    if speed_it_day > 0:
+        remaining = np.timedelta64(summary.remaining.to_numpy())
+        remaining = format_remaining(speed_color, remaining)
+        eta = np.datetime64(summary.eta.to_numpy())
+        eta = format_eta(speed_color, eta)
+    else:
+        remaining = ''
+        eta = ''
+    speed_it_day = format_speed(speed_color, speed_it_day)
+    speed_day_day = format_speed(speed_color, speed_day_day)
+    return (
+        exp,
+        suite,
+        experiment_type,
+        state,
+        progress,
+        date,
+        speed_it_day,
+        speed_day_day,
+        remaining,
+        eta,
+    )

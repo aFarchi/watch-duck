@@ -7,12 +7,7 @@ from rich.table import Table
 from watch_duck.common.state import encode_state
 from watch_duck.common.wdir import WorkingDirectory
 from watch_duck.summary.format_summary import (
-    format_date,
-    format_eta,
-    format_progress,
-    format_remaining,
-    format_speed,
-    format_state,
+    format_summary_line,
     format_title,
 )
 
@@ -64,6 +59,7 @@ def get_summary(ds, delta_t, exclude_aborted, exclude_suspended):
         pd.Timestamp.now() + ds['remaining'],
         np.datetime64('NaT'),
     )
+    ds['progress'] = ds.index.isel(time=-1) / ds.total
     return ds.isel(time=-1)
 
 
@@ -75,6 +71,9 @@ def show_summary(
     delta_t,
     exclude_aborted,
     exclude_suspended,
+    vref_fc,
+    vref_lw,
+    vref_elda,
 ):
     wdir = WorkingDirectory(wdir)
     report = wdir.get_report().load()
@@ -89,6 +88,11 @@ def show_summary(
         if name.endswith(('_preprocess', '_main', '_postprocess'))
     )
     summary = get_summary(report, delta_t, exclude_aborted, exclude_suspended)
+    summary = summary.sortby([
+        summary.experiment_type,
+        summary.suite,
+        -summary.progress,
+    ])
     table = Table(
         title=format_title(
             family,
@@ -110,19 +114,7 @@ def show_summary(
     table.add_column('ETA', style='magenta', justify='right')
     for i in range(len(summary.exp)):
         table.add_row(
-            summary.exp.to_numpy()[i],
-            summary.suite.to_numpy()[i],
-            summary.experiment_type.to_numpy()[i],
-            format_state(summary.state.to_numpy()[i]),
-            format_progress(summary.index.to_numpy()[i], summary.total.to_numpy()[i]),
-            format_date(summary.date_current.to_numpy()[i]),
-            format_speed(summary.speed_it_day.to_numpy()[i]),
-            format_speed(summary.speed_day_day.to_numpy()[i]),
-            format_remaining(
-                summary.speed_day_day.to_numpy()[i],
-                summary.remaining.to_numpy()[i],
-            ),
-            format_eta(summary.speed_day_day.to_numpy()[i], summary.eta.to_numpy()[i]),
+            *format_summary_line(summary.isel(exp=i), vref_fc, vref_lw, vref_elda),
         )
     console = Console()
     console.print(table)

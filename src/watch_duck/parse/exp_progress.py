@@ -81,13 +81,19 @@ def get_progress_fc_1_experiment(nodes, group):
     date_lag = (
         pd.Timestamp(nodes['postprocess']['children'][group]['ymd_current']) + step
     )
-    if nodes['preprocess']['children'][group]['state'] == 'complete' and date_ini < date_end:
+    if (
+        nodes['preprocess']['children'][group]['state'] == 'complete'
+        and date_ini < date_end
+    ):
         date_ini += date_freq
         nodes['preprocess']['children'][group]['state'] = 'queued'
     if nodes['main']['children'][group]['state'] == 'complete' and date_fc < date_end:
         date_fc += date_freq
         nodes['main']['children'][group]['state'] = 'queued'
-    if nodes['postprocess']['children'][group]['state'] == 'complete' and date_lag < date_end:
+    if (
+        nodes['postprocess']['children'][group]['state'] == 'complete'
+        and date_lag < date_end
+    ):
         date_lag += date_freq
         nodes['postprocess']['children'][group]['state'] = 'queued'
     return {
@@ -149,13 +155,19 @@ def get_progress_an_1_experiment(nodes, kind, group):
     date_lag = (
         pd.Timestamp(nodes['postprocess']['children'][group]['ymd_current']) + step
     )
-    if nodes['preprocess']['children'][group]['state'] == 'complete' and date_obs < date_end:
+    if (
+        nodes['preprocess']['children'][group]['state'] == 'complete'
+        and date_obs < date_end
+    ):
         date_obs += date_freq
         nodes['preprocess']['children'][group]['state'] = 'queued'
     if nodes['main']['children'][group]['state'] == 'complete' and date_main < date_end:
         date_main += date_freq
         nodes['main']['children'][group]['state'] = 'queued'
-    if nodes['postprocess']['children'][group]['state'] == 'complete' and date_lag < date_end:
+    if (
+        nodes['postprocess']['children'][group]['state'] == 'complete'
+        and date_lag < date_end
+    ):
         date_lag += date_freq
         nodes['postprocess']['children'][group]['state'] = 'queued'
     return {
