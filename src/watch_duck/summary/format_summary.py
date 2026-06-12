@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from watch_duck.common.state import decode_state
+from watch_duck.common.state import encode_state, decode_state
 
 cmap_red_green_names = [
     'red1',
@@ -130,6 +130,12 @@ def format_summary_line(summary, vref_fc, vref_lw, vref_elda):
         eta = ''
     speed_it_day = format_speed(speed_color, speed_it_day)
     speed_day_day = format_speed(speed_color, speed_day_day)
+    if index == total:
+        state = format_state(encode_state('complete'))
+        speed_it_day = ''
+        speed_day_day = ''
+        remaining = ''
+        eta = ''
     return (
         exp,
         suite,
