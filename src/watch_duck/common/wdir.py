@@ -91,3 +91,6 @@ class WorkingDirectory:
         )
         path_report_diff.parent.mkdir(parents=True, exist_ok=True)
         ds.to_netcdf(path_report_diff, engine='h5netcdf')
+
+    def get_report_diff_files(self):
+        return sorted(self.wdir.glob('report_diff/*.h5'))

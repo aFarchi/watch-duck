@@ -68,7 +68,7 @@ def get_report(wdir, previous_report):
         if now - value < pd.Timedelta(hours=240)
     } | exp_diff
     report_diff = (
-        previous_report.sel(exp=exp_diff.keys())
+        previous_report.sel(exp=exp_diff.keys()).isel(time=-1)
         if 'exp' in previous_report.coords
         else xr.Dataset()
     )

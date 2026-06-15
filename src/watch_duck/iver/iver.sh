@@ -7,16 +7,16 @@ set_plot,'ps' ; Workaround to prevent IDL looking for x-windows to interact with
 
 exp = ['$1']
 
-tag = 'tmp'
+tag = '$2'
 
-start_time = julday(01,01,2025,0,0,0)
+start_time = julday($3,0,0,0)
 
-end_time = julday($2,$3,2025,0,0,0)
+end_time = julday($4,0,0,0)
 
 forecast_only = [1]
 
 grib_settings = {$
-    dbasetime_days:6,basetime:[00],$
+    dbasetime_days:$5,basetime:[00],$
     air_params:['R','Q','Z','T','U','V']$
     }
 
@@ -28,10 +28,10 @@ stat_settings = {$
 
 reference = '0001'
 
-profile = 'sf2025'
+profile = '$6'
 
 iver,$
-    exp,$
+    exp,$   
     tag,$
     start_time = start_time,$
     end_time = end_time,$
