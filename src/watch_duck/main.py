@@ -18,9 +18,17 @@ def get_config():
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
-def cli():
+@click.option(
+    '--debug',
+    '-d',
+    is_flag=True,
+    default=False,
+    help='Enable debug logging for all commands.',
+)
+def cli(debug):
+    level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
-        level='INFO',
+        level=level,
         format='%(message)s',
         datefmt='[%X]',
         handlers=[rich.logging.RichHandler()],
