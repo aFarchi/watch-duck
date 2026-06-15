@@ -13,14 +13,9 @@ def to_zarr(ds, path):
 class WorkingDirectory:
     def __init__(self, wdir):
         self.wdir = pathlib.Path(wdir)
-        self.path_log_in = self.wdir / 'log_in'
-        self.path_log_arxiv = self.wdir / 'log_arxiv'
-
-        self.path_log_in.mkdir(parents=True, exist_ok=True)
-        self.path_log_arxiv.mkdir(parents=True, exist_ok=True)
 
     def get_log_files(self, suites):
-        log_files = sorted(self.path_log_in.glob('*.log'))
+        log_files = sorted(self.wdir.glob('log_in/*.log'))
         return [
             log_file
             for log_file in log_files
@@ -54,9 +49,6 @@ class WorkingDirectory:
                     if experiment_type is None or the_type == experiment_type:
                         experiments.append(experiment_name)
         return experiments
-
-    def unlink_log_file(self, log_file):
-        log_file.unlink()
 
     def save_experiment_state(self, name, ds):
         path_state = self.wdir / f'state/{name}.zarr'
