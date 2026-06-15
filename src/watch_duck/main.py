@@ -89,29 +89,15 @@ def show_summary(suite, experiment_type, family):
 
 
 @cli.command(name='iver')
-@click.argument('iver_config', type=str)
-@click.option(
-    '--partial',
-    '-p',
-    is_flag=True,
-    default=False,
-    help='Run partial IVER on unfinished experiments (default: False)',
-)
-def run_iver(iver_config, partial):
-    """Run IVER with a given config on compatible experiments."""  # noqa: DOC501
+def run_iver():
+    """Run IVER with a given config on compatible experiments."""
     config = get_config()
-    if iver_config not in config.get('iver', {}):
-        message = (
-            f'Invalid IVER config "{iver_config}". '
-            f'Available configs: {config.get("iver", {}).keys()}'
+    for partial in (False, True):
+        watch_duck.iver.run_iver(
+            **config['main'],
+            profiles=config['iver'],
+            partial=partial,
         )
-        raise click.BadParameter(message)
-    watch_duck.iver.run_iver(
-        **config['main'],
-        **config['iver'][iver_config],
-        profile=iver_config,
-        partial=partial,
-    )
 
 
 if __name__ == '__main__':
