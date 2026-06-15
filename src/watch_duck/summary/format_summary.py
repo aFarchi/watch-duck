@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from watch_duck.common.state import encode_state, decode_state
+from watch_duck.common.state import decode_state, encode_state
 
 cmap_red_green_names = [
     'red1',

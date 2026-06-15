@@ -84,3 +84,10 @@ class WorkingDirectory:
             message = f'Report file does not exist: {path_report}'
             raise FileNotFoundError(message)
         return xr.open_dataset(path_report, engine='h5netcdf')
+
+    def save_report_diff(self, ds, now):
+        path_report_diff = (
+            self.wdir / f'report_diff/{now.strftime("%Y_%m_%d_%H_%M_%S")}.h5'
+        )
+        path_report_diff.parent.mkdir(parents=True, exist_ok=True)
+        ds.to_netcdf(path_report_diff, engine='h5netcdf')

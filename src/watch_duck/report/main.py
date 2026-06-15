@@ -44,7 +44,7 @@ def get_experiment_report(wdir, experiment, now):
     return xr.merge((ds, attributes))
 
 
-def get_report(wdir):
+def get_report(wdir, previous_report):
     now = pd.Timestamp.now().floor('h')
     with overall_progres_bar() as progress:
         report = [
@@ -54,10 +54,37 @@ def get_report(wdir):
                 description='preparing report',
             )
         ]
-    return xr.concat(report, dim='exp')
+    report = xr.concat(report, dim='exp')
+    exp_diff = {
+        experiment: now
+        for experiment in (
+            previous_report.exp.to_numpy() if 'exp' in previous_report.coords else []
+        )
+        if experiment not in report.exp.to_numpy()
+    }
+    updated_exp_diff = {
+        key: value
+        for key, value in previous_report.attrs.get('exp_diff', {}).items()
+        if now - value < pd.Timedelta(hours=240)
+    } | exp_diff
+    report_diff = (
+        previous_report.sel(exp=exp_diff.keys())
+        if 'exp' in previous_report.coords
+        else xr.Dataset()
+    )
+    wdir.save_report_diff(report_diff, now)
+    return report.assign_attrs(exp_diff=updated_exp_diff)
+
+
+def get_previous_report(wdir):
+    try:
+        return wdir.get_report()
+    except FileNotFoundError:
+        return xr.Dataset()
 
 
 def write_report(wdir):
     wdir = WorkingDirectory(wdir)
-    report = get_report(wdir)
+    previous_report = get_previous_report(wdir)
+    report = get_report(wdir, previous_report)
     wdir.save_report(report)
