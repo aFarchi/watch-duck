@@ -71,7 +71,7 @@ def get_report_diff(previous_report, report):
     exp_current = get_coord(report, 'exp')
     exp_previous = get_coord(previous_report, 'exp')
     exp_diff = list(set(exp_previous) - set(exp_current))
-    return previous_report.sel(exp=exp_diff) if exp_diff else xr.Dataset()
+    return previous_report.sel(exp=exp_diff) if exp_diff else None
 
 
 def get_report(now, wdir, previous_report):
@@ -104,4 +104,5 @@ def write_report(wdir):
     report = get_report(now, wdir, previous_report)
     wdir.save_report(report)
     report_diff = get_report_diff(previous_report, report)
-    wdir.save_report_diff(report_diff, now)
+    if report_diff is not None:
+        wdir.save_report_diff(report_diff, now)
