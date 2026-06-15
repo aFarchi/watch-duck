@@ -55,9 +55,8 @@ class WorkingDirectory:
                         experiments.append(experiment_name)
         return experiments
 
-    def archive_log_file(self, log_file):
-        new_name = self.path_log_arxiv / log_file.name
-        log_file.rename(new_name)
+    def unlink_log_file(self, log_file):
+        log_file.unlink()
 
     def save_experiment_state(self, name, ds):
         path_state = self.wdir / f'state/{name}.zarr'

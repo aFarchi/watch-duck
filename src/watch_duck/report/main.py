@@ -56,7 +56,7 @@ def get_report(wdir, previous_report):
         ]
     report = xr.concat(report, dim='exp')
     exp_diff = {
-        experiment: now
+        experiment: now.strftime('%Y-%m-%dT%H:%M:%S')
         for experiment in (
             previous_report.exp.to_numpy() if 'exp' in previous_report.coords else []
         )
@@ -64,16 +64,16 @@ def get_report(wdir, previous_report):
     }
     updated_exp_diff = {
         key: value
-        for key, value in previous_report.attrs.get('exp_diff', {}).items()
-        if now - value < pd.Timedelta(hours=240)
+        for key, value in previous_report.attrs.items()
+        if now - pd.Timestamp(value) < pd.Timedelta(hours=240)
     } | exp_diff
     report_diff = (
-        previous_report.sel(exp=exp_diff.keys()).isel(time=-1)
+        previous_report.sel(exp=list(exp_diff.keys())).isel(time=-1)
         if 'exp' in previous_report.coords
         else xr.Dataset()
     )
     wdir.save_report_diff(report_diff, now)
-    return report.assign_attrs(exp_diff=updated_exp_diff)
+    return report.assign_attrs(**updated_exp_diff)
 
 
 def get_previous_report(wdir):
@@ -85,6 +85,7 @@ def get_previous_report(wdir):
 
 def write_report(wdir):
     wdir = WorkingDirectory(wdir)
-    previous_report = get_previous_report(wdir)
+    previous_report = get_previous_report(wdir).load()
+    previous_report.close()
     report = get_report(wdir, previous_report)
     wdir.save_report(report)
