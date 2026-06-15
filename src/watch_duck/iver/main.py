@@ -109,4 +109,4 @@ def run_iver(*, partial, profiles, **kwargs):
         for profile, config in profiles.items():
             run_partial_iver(profile=profile, **config, **kwargs)
     else:
-        run_full_iver(**kwargs)
+        run_full_iver_all(profiles=profiles, **kwargs)
