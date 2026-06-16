@@ -1,7 +1,6 @@
 import logging
 import subprocess  # noqa: S404
 
-
 import pandas as pd
 import xarray as xr
 
@@ -61,21 +60,40 @@ def get_finished_exp(now, previous_report, report):
     finished_exp_previous = get_coord(previous_report, 'finished_exp')
     finished_date_current = [now] * len(finished_exp_current)
     finished_date_previous = get_data_var(previous_report, 'finished_date')
-    finished_type_current = previous_report.sel(exp=finished_exp_current).experiment_type.to_numpy()
+    finished_type_current = previous_report.sel(
+        exp=finished_exp_current,
+    ).experiment_type.to_numpy()
     finished_type_previous = get_data_var(previous_report, 'finished_type')
-    finished_suite_current = previous_report.sel(exp=finished_exp_current).suite.to_numpy()
+    finished_suite_current = previous_report.sel(
+        exp=finished_exp_current,
+    ).suite.to_numpy()
     finished_suite_previous = get_data_var(previous_report, 'finished_suite')
     finished_exp = xr.Dataset(
         data_vars={
-            'finished_date': (('finished_exp',), [*finished_date_previous, *finished_date_current]),
-            'finished_type': (('finished_exp',), [*finished_type_previous, *finished_type_current]),
-            'finished_suite': (('finished_exp',), [*finished_suite_previous, *finished_suite_current]),
+            'finished_date': (
+                ('finished_exp',),
+                [*finished_date_previous, *finished_date_current],
+            ),
+            'finished_type': (
+                ('finished_exp',),
+                [*finished_type_previous, *finished_type_current],
+            ),
+            'finished_suite': (
+                ('finished_exp',),
+                [*finished_suite_previous, *finished_suite_current],
+            ),
         },
         coords={
-            'finished_exp': ('finished_exp', [*finished_exp_previous, *finished_exp_current]),
+            'finished_exp': (
+                'finished_exp',
+                [*finished_exp_previous, *finished_exp_current],
+            ),
         },
     )
-    return finished_exp.where(now.to_datetime64() - finished_exp.finished_date < pd.Timedelta(hours=240), drop=True)
+    return finished_exp.where(
+        now.to_datetime64() - finished_exp.finished_date < pd.Timedelta(hours=240),
+        drop=True,
+    )
 
 
 def get_report_diff(previous_report, report):
@@ -95,8 +113,7 @@ def get_report(now, wdir, previous_report):
             )
         ]
     report = xr.concat(report, dim='exp')
-    report = xr.merge((report, get_finished_exp(now, previous_report, report)))
-    return report
+    return xr.merge((report, get_finished_exp(now, previous_report, report)))
 
 
 def get_previous_report(wdir):
@@ -122,8 +139,8 @@ def write_report(wdir):
 def download_report(wdir):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
-        subprocess.run(  # noqa: S603
-            [
+        subprocess.run(
+            [  # noqa: S607
                 'sitesctl',
                 'site',
                 '--space',

@@ -7,10 +7,10 @@ from rich.table import Table
 from watch_duck.common.state import encode_state
 from watch_duck.common.wdir import WorkingDirectory
 from watch_duck.summary.format_summary import (
-    format_summary_line,
     format_finished_line,
-    format_title,
     format_finished_title,
+    format_summary_line,
+    format_title,
 )
 
 

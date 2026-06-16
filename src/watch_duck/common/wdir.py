@@ -15,7 +15,7 @@ def to_zarr(ds, path):
 class WorkingDirectory:
     def __init__(self, wdir):
         self.wdir = pathlib.Path(wdir)
-    
+
     @contextlib.contextmanager
     def working_directory(self):
         old_cwd = pathlib.Path.cwd()
