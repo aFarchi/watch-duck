@@ -1,6 +1,6 @@
 import contextlib
-import os
 import logging
+import os
 import pathlib
 
 import xarray as xr
@@ -8,7 +8,7 @@ import xarray as xr
 logger = logging.getLogger(__name__)
 
 
-def to_zarr(ds, path, overwrite=False):
+def to_zarr(ds, path, *, overwrite=False):
     if path.exists() and not overwrite:
         ds.to_zarr(path, append_dim='time', mode='a', consolidated=False)
     else:
@@ -70,7 +70,7 @@ class WorkingDirectory:
         try:
             to_zarr(ds, path_state, overwrite=False)
         except ValueError:
-            logger.warning(f'removing previous state values for experiment "{name}"')
+            logger.warning('removing previous state values for experiment "%s"', name)
             to_zarr(ds, path_state, overwrite=True)
 
     def save_experiment_progress(self, name, ds):
