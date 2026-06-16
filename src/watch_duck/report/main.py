@@ -61,9 +61,9 @@ def get_finished_exp(now, previous_report, report):
     finished_exp_previous = get_coord(previous_report, 'finished_exp')
     finished_date_current = [now] * len(finished_exp_current)
     finished_date_previous = get_data_var(previous_report, 'finished_date')
-    finished_type_current = report.sel(exp=finished_exp_current).experiment_type.to_numpy()
+    finished_type_current = previous_report.sel(exp=finished_exp_current).experiment_type.to_numpy()
     finished_type_previous = get_data_var(previous_report, 'finished_type')
-    finished_suite_current = report.sel(exp=finished_exp_current).suite.to_numpy()
+    finished_suite_current = previous_report.sel(exp=finished_exp_current).suite.to_numpy()
     finished_suite_previous = get_data_var(previous_report, 'finished_suite')
     finished_exp = xr.Dataset(
         data_vars={
@@ -75,7 +75,7 @@ def get_finished_exp(now, previous_report, report):
             'finished_exp': ('finished_exp', [*finished_exp_previous, *finished_exp_current]),
         },
     )
-    return finished_exp.where(now - finished_exp.finished_date < pd.Timedelta(hours=240), drop=True)
+    return finished_exp.where(now.to_datetime64() - finished_exp.finished_date < pd.Timedelta(hours=240), drop=True)
 
 
 def get_report_diff(previous_report, report):
