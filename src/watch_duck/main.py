@@ -90,7 +90,7 @@ def show_summary(suite, experiment_type, family):
 
 @cli.command(name='iver')
 def run_iver():
-    """Run IVER with a given config on compatible experiments."""
+    """Run IVER on compatible forecast experiments."""
     config = get_config()
     for partial in (False, True):
         watch_duck.iver.run_iver(

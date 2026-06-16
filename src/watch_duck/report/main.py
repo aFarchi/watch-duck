@@ -59,12 +59,21 @@ def get_date_diff(now, previous_report, report):
     exp_diff_previous = get_coord(previous_report, 'exp_diff')
     date_diff_current = [now] * len(exp_diff_current)
     date_diff_previous = get_data_var(previous_report, 'date_diff')
-    date_diff = xr.DataArray(
-        data=[*date_diff_previous, *date_diff_current],
-        dims=['exp_diff'],
-        coords={'exp_diff': [*exp_diff_previous, *exp_diff_current]},
+    exp_type_current = report.sel(exp=exp_diff_current).experiment_type.to_numpy()
+    exp_type_previous = get_data_var(previous_report, 'experiment_type_diff')
+    suite_current = report.sel(exp=exp_diff_current).suite.to_numpy()
+    suite_previous = get_data_var(previous_report, 'suite_diff')
+    report_diff = xr.Dataset(
+        data_vars={
+            'date_diff': (('exp_diff',), [*date_diff_previous, *date_diff_current]),
+            'experiment_type_diff': (('exp_diff',), [*exp_type_previous, *exp_type_current]),
+            'suite_diff': (('exp_diff',), [*suite_previous, *suite_current]),
+        },
+        coords={
+            'exp_diff': ('exp_diff', [*exp_diff_previous, *exp_diff_current]),
+        },
     )
-    return date_diff.where(now - date_diff < pd.Timedelta(hours=240), drop=True)
+    return report_diff.where(now - report_diff.date_diff < pd.Timedelta(hours=240), drop=True)
 
 
 def get_report_diff(previous_report, report):
@@ -84,7 +93,7 @@ def get_report(now, wdir, previous_report):
             )
         ]
     report = xr.concat(report, dim='exp')
-    report['date_diff'] = get_date_diff(now, previous_report, report)
+    report = xr.merge((report, get_date_diff(now, previous_report, report)))
     return report
 
 

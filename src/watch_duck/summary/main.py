@@ -118,3 +118,15 @@ def show_summary(
         )
     console = Console()
     console.print(table)
+
+
+def show_diff(wdir):
+    wdir = WorkingDirectory(wdir)
+    date_diff = wdir.get_report().date_diff.load()
+    table = Table(title='Rcently finished experiments')
+    table.add_column('ID', style='cyan')
+    table.add_column('Suite', style='cyan')
+    table.add_column('Exp. type', style='cyan')
+    table.add_column('Finished at', style='green')
+    ...
+    
