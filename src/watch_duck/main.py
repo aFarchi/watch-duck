@@ -88,6 +88,15 @@ def show_summary(suite, experiment_type, family):
     )
 
 
+@cli.command(name='finished')
+def show_finished():
+    """Show recently finished experiments."""
+    config = get_config()
+    watch_duck.summary.show_finished(
+        **config['main'],
+    )
+
+
 @cli.command(name='iver')
 def run_iver():
     """Run IVER on compatible forecast experiments."""

@@ -44,6 +44,11 @@ def format_title(family, delta_t, exclude_aborted, exclude_suspended, last_updat
 last update: {format_date(last_update)} UTC ({format_recent_past(last_update)})[/]"""
 
 
+def format_finished_title(last_update):
+    return f"""[green]Recently finished experiments
+last update: {format_date(last_update)} UTC ({format_recent_past(last_update)})[/]"""
+
+
 def format_state(state):
     state = decode_state(state)
     color = {
@@ -148,3 +153,18 @@ def format_summary_line(summary, vref_fc, vref_lw, vref_elda):
         remaining,
         eta,
     )
+
+
+def format_finished_line(finished):
+    exp = str(finished.exp.to_numpy())
+    suite = str(finished.suite.to_numpy())
+    experiment_type = str(finished.experiment_type.to_numpy())
+    finished_date = np.datetime64(finished.finished_date.to_numpy())
+    last_update = np.datetime64(finished.time.to_numpy())
+    delta = pd.Timestamp(last_update) - pd.Timestamp(finished_date)
+    delta = 1 - delta / pd.Timedelta('240h')
+    delta_color = int(delta * (len(cmap_red_green_names) - 1))
+    delta_color = max(0, min(delta_color, len(cmap_red_green_names) - 1))
+    delta_color = cmap_red_green_names[delta_color]    
+    finished_date = format_date_color(delta_color, finished_date)
+    return exp, suite, experiment_type, finished_date

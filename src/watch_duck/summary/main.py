@@ -8,7 +8,9 @@ from watch_duck.common.state import encode_state
 from watch_duck.common.wdir import WorkingDirectory
 from watch_duck.summary.format_summary import (
     format_summary_line,
+    format_finished_line,
     format_title,
+    format_finished_title,
 )
 
 
@@ -120,13 +122,15 @@ def show_summary(
     console.print(table)
 
 
-def show_diff(wdir):
+def show_finished(wdir):
     wdir = WorkingDirectory(wdir)
-    date_diff = wdir.get_report().date_diff.load()
-    table = Table(title='Rcently finished experiments')
+    report = wdir.get_report().isel(time=-1).load()
+    table = Table(title=format_finished_title(np.datetime64(report.time.to_numpy())))
     table.add_column('ID', style='cyan')
     table.add_column('Suite', style='cyan')
     table.add_column('Exp. type', style='cyan')
     table.add_column('Finished at', style='green')
-    ...
-    
+    for i in range(len(report.finished_exp)):
+        table.add_row(*format_finished_line(report.isel(finished_exp=i)))
+    console = Console()
+    console.print(table)
