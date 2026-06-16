@@ -1,4 +1,6 @@
 import logging
+import subprocess  # noqa: S404
+
 
 import pandas as pd
 import xarray as xr
@@ -115,3 +117,28 @@ def write_report(wdir):
     report_diff = get_report_diff(previous_report, report)
     if report_diff is not None:
         wdir.save_report_diff(report_diff, now)
+
+
+def download_report(wdir):
+    wdir = WorkingDirectory(wdir)
+    with wdir.working_directory():
+        subprocess.run(  # noqa: S603
+            [
+                'sitesctl',
+                'site',
+                '--space',
+                'daaf',
+                '--name',
+                'iver',
+                'content',
+                'download',
+                '--path',
+                'report.h5',
+                '--yes',
+            ],
+            check=True,
+        )
+    report = wdir.wdir / 'daaf/iver/report.h5'
+    report.rename(wdir.wdir / 'report.h5')
+    (wdir.wdir / 'daaf/iver').rmdir()
+    (wdir.wdir / 'daaf').rmdir()

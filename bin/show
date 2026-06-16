@@ -1,4 +1,0 @@
-#!/bin/bash
-module load tykky
-tykky activate wd
-watch-duck summary

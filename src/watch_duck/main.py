@@ -54,6 +54,15 @@ def write_report():
     )
 
 
+@cli.command(name='download')
+def download_report():
+    """Download progress report from IVER site."""
+    config = get_config()
+    watch_duck.report.download_report(
+        **config['main'],
+    )
+
+
 @cli.command(name='summary')
 @click.option(
     '--suite',
@@ -92,6 +101,34 @@ def show_summary(suite, experiment_type, family):
 def show_finished():
     """Show recently finished experiments."""
     config = get_config()
+    watch_duck.summary.show_finished(
+        **config['main'],
+    )
+
+
+@cli.command(name='show')
+@click.option(
+    '--download',
+    '-d',
+    is_flag=True,
+    default=False,
+    help='Download before showing.',
+)
+def show(download):
+    """Download show progress report (combination of other commands)."""
+    config = get_config()
+    if download:
+        watch_duck.report.download_report(
+            **config['main'],
+        )
+    for experiment_type in ['fc', 'lw', 'elda']:
+        watch_duck.summary.show_summary(
+            suite='all',
+            experiment_type=experiment_type,
+            family='postprocess',
+            **config['main'],
+            **config['summary'],
+        )
     watch_duck.summary.show_finished(
         **config['main'],
     )

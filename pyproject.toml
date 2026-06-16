@@ -58,15 +58,6 @@ watch-duck = { path = ".", editable = true }
 [tool.pixi.tasks]
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
-download = "bin/download"
-parse = "watch-duck parse"
-report = "watch-duck report"
-summary = "watch-duck summary"
-summary_fc = "watch-duck summary -t fc"
-summary_lw = "watch-duck summary -t lw"
-summary_elda = "watch-duck summary -t elda"
-show = [{ task = "download" }, { task = "summary_fc" }, { task = "summary_lw" }, { task = "summary_elda" }]
-iver = "watch-duck iver f2025"
 
 [tool.pixi.dependencies]
 bottleneck = ">=1.6.0,<2"

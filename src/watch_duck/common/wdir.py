@@ -1,3 +1,5 @@
+import contextlib
+import os
 import pathlib
 
 import xarray as xr
@@ -13,6 +15,15 @@ def to_zarr(ds, path):
 class WorkingDirectory:
     def __init__(self, wdir):
         self.wdir = pathlib.Path(wdir)
+    
+    @contextlib.contextmanager
+    def working_directory(self):
+        old_cwd = pathlib.Path.cwd()
+        os.chdir(self.wdir)
+        try:
+            yield self
+        finally:
+            os.chdir(old_cwd)
 
     def get_log_files(self, suites):
         log_files = sorted(self.wdir.glob('log_in/*.log'))
