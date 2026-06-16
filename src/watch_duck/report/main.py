@@ -52,28 +52,28 @@ def get_data_var(ds, name):
     return ds[name].to_numpy() if name in ds else []
 
 
-def get_date_diff(now, previous_report, report):
+def get_finished_exp(now, previous_report, report):
     exp_current = get_coord(report, 'exp')
     exp_previous = get_coord(previous_report, 'exp')
-    exp_diff_current = list(set(exp_previous) - set(exp_current))
-    exp_diff_previous = get_coord(previous_report, 'exp_diff')
-    date_diff_current = [now] * len(exp_diff_current)
-    date_diff_previous = get_data_var(previous_report, 'date_diff')
-    exp_type_current = report.sel(exp=exp_diff_current).experiment_type.to_numpy()
-    exp_type_previous = get_data_var(previous_report, 'experiment_type_diff')
-    suite_current = report.sel(exp=exp_diff_current).suite.to_numpy()
-    suite_previous = get_data_var(previous_report, 'suite_diff')
-    report_diff = xr.Dataset(
+    finished_exp_current = list(set(exp_previous) - set(exp_current))
+    finished_exp_previous = get_coord(previous_report, 'finished_exp')
+    finished_date_current = [now] * len(finished_exp_current)
+    finished_date_previous = get_data_var(previous_report, 'finished_date')
+    finished_type_current = report.sel(exp=finished_exp_current).experiment_type.to_numpy()
+    finished_type_previous = get_data_var(previous_report, 'finished_type')
+    finished_suite_current = report.sel(exp=finished_exp_current).suite.to_numpy()
+    finished_suite_previous = get_data_var(previous_report, 'finished_suite')
+    finished_exp = xr.Dataset(
         data_vars={
-            'date_diff': (('exp_diff',), [*date_diff_previous, *date_diff_current]),
-            'experiment_type_diff': (('exp_diff',), [*exp_type_previous, *exp_type_current]),
-            'suite_diff': (('exp_diff',), [*suite_previous, *suite_current]),
+            'finished_date': (('finished_exp',), [*finished_date_previous, *finished_date_current]),
+            'finished_type': (('finished_exp',), [*finished_type_previous, *finished_type_current]),
+            'finished_suite': (('finished_exp',), [*finished_suite_previous, *finished_suite_current]),
         },
         coords={
-            'exp_diff': ('exp_diff', [*exp_diff_previous, *exp_diff_current]),
+            'finished_exp': ('finished_exp', [*finished_exp_previous, *finished_exp_current]),
         },
     )
-    return report_diff.where(now - report_diff.date_diff < pd.Timedelta(hours=240), drop=True)
+    return finished_exp.where(now - finished_exp.finished_date < pd.Timedelta(hours=240), drop=True)
 
 
 def get_report_diff(previous_report, report):
@@ -93,7 +93,7 @@ def get_report(now, wdir, previous_report):
             )
         ]
     report = xr.concat(report, dim='exp')
-    report = xr.merge((report, get_date_diff(now, previous_report, report)))
+    report = xr.merge((report, get_finished_exp(now, previous_report, report)))
     return report
 
 
