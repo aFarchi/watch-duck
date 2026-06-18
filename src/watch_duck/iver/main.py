@@ -3,7 +3,6 @@ import pathlib
 import subprocess  # noqa: S404
 
 import pandas as pd
-import xarray as xr
 
 from watch_duck.common.wdir import WorkingDirectory
 
@@ -61,15 +60,29 @@ def run_partial_iver(wdir, date_start, date_end, date_freq, profile, version=Non
         )
 
 
-def run_full_iver(report, date_start, date_end, date_freq, profile, version=None):
+def check_full_iver(exp, profile):
+    config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
+    with pathlib.Path(config_file).open('rb') as f:
+        iver_path = pathlib.Path(f.readline().strip())
+    iver_stats_sfc = iver_path / f'stats/verify_{exp}_0001_{profile}_sfc.nc'
+    iver_stats_lvl = iver_path / f'stats/verify_{exp}_0001_{profile}.nc'
+    return iver_stats_sfc.exists() and iver_stats_lvl.exists()
+
+
+def run_full_iver(wdir, date_start, date_end, date_freq, profile, version=None):
+    wdir = WorkingDirectory(wdir)
     date_start = pd.Timestamp(date_start)
     date_end = pd.Timestamp(date_end)
-    report = report.where(report.experiment_type == 'fc', drop=True)
-    report = report.where(report.date_start == date_start, drop=True)
-    report = report.where(report.date_end == date_end, drop=True)
-    report = report.where(report.date_freq == date_freq, drop=True)
+    report = wdir.get_report().isel(time=-1).load()
+    report = report.where(report.finished_experiment_type == 'fc', drop=True)
+    report = report.where(report.finished_date_start == date_start, drop=True)
+    report = report.where(report.finished_date_end == date_end, drop=True)
+    report = report.where(report.finished_date_freq == date_freq, drop=True)
     failed_experiments = []
-    for exp in report.exp.to_numpy():
+    for exp in report.finished_exp.to_numpy():
+        if check_full_iver(exp, profile):
+            logger.info('Skipping IVER for %s (already done)', exp)
+            continue
         logger.info('Running full IVER for %s', exp)
         try:
             iver(
@@ -84,26 +97,6 @@ def run_full_iver(report, date_start, date_end, date_freq, profile, version=None
             )
         except subprocess.CalledProcessError:
             failed_experiments.append(exp)
-    return failed_experiments
-
-
-def run_full_iver_all(wdir, profiles):
-    wdir = WorkingDirectory(wdir)
-    report_diff_files = wdir.get_report_diff_files()
-    failed_experiments = []
-    for report_diff_file in report_diff_files:
-        logger.info('reading report diff: %s', report_diff_file)
-        report = xr.open_dataset(report_diff_file, engine='h5netcdf').load()
-        report.close()
-        for profile, config in profiles.items():
-            failed_experiments.extend(
-                run_full_iver(
-                    report=report,
-                    profile=profile,
-                    **config,
-                ),
-            )
-        report_diff_file.unlink()
     if failed_experiments:
         logger.warning('Failed experiments:')
         for exp in failed_experiments:
@@ -112,8 +105,6 @@ def run_full_iver_all(wdir, profiles):
 
 
 def run_iver(*, partial, profiles, **kwargs):
-    if partial:
-        for profile, config in profiles.items():
-            run_partial_iver(profile=profile, **config, **kwargs)
-    else:
-        run_full_iver_all(profiles=profiles, **kwargs)
+    run_iver_function = run_partial_iver if partial else run_full_iver
+    for profile, config in profiles.items():
+        run_iver_function(profile=profile, **config, **kwargs)
