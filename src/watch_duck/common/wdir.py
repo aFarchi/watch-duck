@@ -29,7 +29,7 @@ class WorkingDirectory:
             os.chdir(old_cwd)
 
     def get_log_files(self, suites):
-        log_files = sorted(self.wdir.glob('log_in/*.log'))
+        log_files = sorted(self.wdir.glob('log/*.log'))
         return [
             log_file
             for log_file in log_files
@@ -37,7 +37,7 @@ class WorkingDirectory:
         ]
 
     def archive_log_file(self, log_file):
-        path_archive = self.wdir / 'log_arxiv' / log_file.name
+        path_archive = self.wdir / 'log/arxiv' / log_file.name
         path_archive.parent.mkdir(parents=True, exist_ok=True)
         log_file.rename(path_archive)
 
