@@ -129,7 +129,7 @@ def show_finished(wdir):
     table.add_column('ID', style='cyan')
     table.add_column('Suite', style='cyan')
     table.add_column('Exp. type', style='cyan')
-    table.add_column('Finished at', style='green')
+    table.add_column('Last active at', style='green')
     for i in range(len(report.finished_exp)):
         table.add_row(*format_finished_line(report.isel(finished_exp=i)))
     console = Console()

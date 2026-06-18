@@ -158,7 +158,7 @@ def format_summary_line(summary, vref_fc, vref_lw, vref_elda):
 def format_finished_line(finished):
     exp = str(finished.finished_exp.to_numpy())
     suite = str(finished.finished_suite.to_numpy())
-    experiment_type = str(finished.finished_type.to_numpy())
+    experiment_type = str(finished.finished_experiment_type.to_numpy())
     finished_date = np.datetime64(finished.finished_date.to_numpy())
     last_update = np.datetime64(finished.time.to_numpy())
     delta = pd.Timestamp(last_update) - pd.Timestamp(finished_date)
