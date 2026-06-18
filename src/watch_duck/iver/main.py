@@ -10,12 +10,14 @@ from watch_duck.common.wdir import WorkingDirectory
 logger = logging.getLogger(__name__)
 
 
-def iver(exp, tag, date_start, date_end, date_freq, profile, check):
+def iver(version, exp, tag, date_start, date_end, date_freq, profile, check):
     iver_file = pathlib.Path(__file__).parent / 'iver.sh'
+    version = '' if version is None else f'/{version}'
     subprocess.run(  # noqa: S603
         [
             '/bin/sh',
             str(iver_file),
+            version,
             exp,
             tag,
             date_start.strftime('%m,%d,%Y'),
@@ -27,7 +29,7 @@ def iver(exp, tag, date_start, date_end, date_freq, profile, check):
     )
 
 
-def run_partial_iver(wdir, date_start, date_end, date_freq, profile):
+def run_partial_iver(wdir, date_start, date_end, date_freq, profile, version=None):
     wdir = WorkingDirectory(wdir)
     date_start = pd.Timestamp(date_start)
     date_end = pd.Timestamp(date_end)
@@ -48,6 +50,7 @@ def run_partial_iver(wdir, date_start, date_end, date_freq, profile):
         time = pd.Timestamp(date_current)
         logger.info('Running partial IVER for %s until %s', exp, time)
         iver(
+            version=version,
             exp=exp,
             tag='tmp',
             date_start=date_start,
@@ -58,7 +61,9 @@ def run_partial_iver(wdir, date_start, date_end, date_freq, profile):
         )
 
 
-def run_full_iver(report, date_start, date_end, date_freq, profile):
+def run_full_iver(report, date_start, date_end, date_freq, profile, version=None):
+    date_start = pd.Timestamp(date_start)
+    date_end = pd.Timestamp(date_end)
     report = report.where(report.experiment_type == 'fc', drop=True)
     report = report.where(report.date_start == date_start, drop=True)
     report = report.where(report.date_end == date_end, drop=True)
@@ -68,6 +73,7 @@ def run_full_iver(report, date_start, date_end, date_freq, profile):
         logger.info('Running full IVER for %s', exp)
         try:
             iver(
+                version=version,
                 exp=exp,
                 tag=profile,
                 date_start=date_start,
@@ -86,6 +92,7 @@ def run_full_iver_all(wdir, profiles):
     report_diff_files = wdir.get_report_diff_files()
     failed_experiments = []
     for report_diff_file in report_diff_files:
+        logger.info('reading report diff: %s', report_diff_file)
         report = xr.open_dataset(report_diff_file, engine='h5netcdf').load()
         report.close()
         for profile, config in profiles.items():

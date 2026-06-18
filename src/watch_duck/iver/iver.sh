@@ -1,22 +1,22 @@
 module reset
-module load iver
+module load iver$1
 
 idl << EOF
 
 set_plot,'ps' ; Workaround to prevent IDL looking for x-windows to interact with
 
-exp = ['$1']
+exp = ['$2']
 
-tag = '$2'
+tag = '$3'
 
-start_time = julday($3,0,0,0)
+start_time = julday($4,0,0,0)
 
-end_time = julday($4,0,0,0)
+end_time = julday($5,0,0,0)
 
 forecast_only = [1]
 
 grib_settings = {$
-    dbasetime_days:$5,basetime:[00],$
+    dbasetime_days:$6,basetime:[00],$
     air_params:['R','Q','Z','T','U','V']$
     }
 
@@ -28,7 +28,7 @@ stat_settings = {$
 
 reference = '0001'
 
-profile = '$6'
+profile = '$7'
 
 iver,$
     exp,$   
