@@ -1,6 +1,7 @@
 import logging
 import subprocess  # noqa: S404
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
@@ -11,7 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_report_active_experiment(wdir, experiment, now):
-    ds = wdir.get_experiment_progress(experiment).isel(time=slice(-256, None)).load()
+    ds = wdir.get_experiment_progress(experiment)
+    time = ds.time.to_numpy()
+    indices = time.searchsorted(np.unique(time))
+    ds = ds.isel(time=indices)
+    ds = ds.isel(time=slice(-256, None)).load()
     dr = pd.date_range(end=now, freq='1h', periods=241)
     ds = ds.reindex(time=dr, method='nearest', tolerance='30m').ffill(dim='time')
     ds = ds.drop_vars(
@@ -65,7 +70,7 @@ def get_report_finished(wdir, now):
             active_paths,
             description='checking for finished experiments',
         ):
-            suite, date = active_path.stem.rsplit('_', 1)
+            suite, date = active_path.stem.split('_', 1)
             date = pd.to_datetime(date, format='%Y_%m_%d_%H_%M_%S').floor('h')
             if now - date > pd.Timedelta('244h'):
                 continue
@@ -128,8 +133,8 @@ def get_report_finished(wdir, now):
 def write_report(wdir):
     wdir = WorkingDirectory(wdir)
     now = pd.Timestamp.now().floor('h')
-    report_active = get_report_active(wdir, now)
     report_finished = get_report_finished(wdir, now)
+    report_active = get_report_active(wdir, now)
     total_report = xr.merge((report_active, report_finished))
     wdir.save_report(total_report)
 
@@ -157,3 +162,24 @@ def download_report(wdir):
     report.rename(wdir.wdir / 'report.h5')
     (wdir.wdir / 'daaf/iver').rmdir()
     (wdir.wdir / 'daaf').rmdir()
+
+
+def upload_report(wdir):
+    wdir = WorkingDirectory(wdir)
+    with wdir.working_directory():
+        subprocess.run(
+            [  # noqa: S607
+                'sitesctl',
+                'site',
+                '--space',
+                'daaf',
+                '--name',
+                'iver',
+                'content',
+                'upload',
+                '--source',
+                'report.h5',
+                '--yes',
+            ],
+            check=True,
+        )

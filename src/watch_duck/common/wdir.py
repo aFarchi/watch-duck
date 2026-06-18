@@ -63,7 +63,7 @@ class WorkingDirectory:
         path_latest_active = self.get_active_path(name, None)
         if path_latest_active.exists():
             path_latest_active.unlink()
-        path_active.symlink_to(path_latest_active)
+        path_latest_active.symlink_to(path_active)
 
     def get_active_experiments(self, name, experiment_type):
         if name is None:

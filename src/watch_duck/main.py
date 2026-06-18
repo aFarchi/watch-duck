@@ -63,6 +63,15 @@ def download_report():
     )
 
 
+@cli.command(name='upload')
+def upload_report():
+    """Upload progress report to IVER site."""
+    config = get_config()
+    watch_duck.report.upload_report(
+        **config['main'],
+    )
+
+
 @cli.command(name='summary')
 @click.option(
     '--suite',
