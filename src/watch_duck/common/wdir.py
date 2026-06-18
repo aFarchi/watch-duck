@@ -52,6 +52,9 @@ class WorkingDirectory:
     def get_all_active_paths(self):
         return sorted(self.wdir.glob('active/*.txt'))
 
+    def get_all_active_arxiv_paths(self):
+        return sorted(self.wdir.glob('active/arxiv/*.txt'))
+
     def save_active_experiments(self, name, date, active_experiments):
         path_active = self.get_active_path(name, date.strftime('%Y_%m_%d_%H_%M_%S'))
         with path_active.open('w', encoding=None) as f:

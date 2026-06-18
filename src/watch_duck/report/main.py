@@ -10,7 +10,7 @@ from watch_duck.common.wdir import WorkingDirectory
 logger = logging.getLogger(__name__)
 
 
-def get_experiment_report(wdir, experiment, now):
+def get_report_active_experiment(wdir, experiment, now):
     ds = wdir.get_experiment_progress(experiment).isel(time=slice(-256, None)).load()
     dr = pd.date_range(end=now, freq='1h', periods=241)
     ds = ds.reindex(time=dr, method='nearest', tolerance='30m').ffill(dim='time')
@@ -45,95 +45,93 @@ def get_experiment_report(wdir, experiment, now):
     return xr.merge((ds, attributes))
 
 
-def get_coord(ds, name):
-    return ds[name].to_numpy() if name in ds.coords else []
-
-
-def get_data_var(ds, name):
-    return ds[name].to_numpy() if name in ds else []
-
-
-def get_finished_exp(now, previous_report, report):
-    exp_current = get_coord(report, 'exp')
-    exp_previous = get_coord(previous_report, 'exp')
-    finished_exp_current = list(set(exp_previous) - set(exp_current))
-    finished_exp_previous = get_coord(previous_report, 'finished_exp')
-    finished_date_current = [now] * len(finished_exp_current)
-    finished_date_previous = get_data_var(previous_report, 'finished_date')
-    finished_type_current = previous_report.sel(
-        exp=finished_exp_current,
-    ).experiment_type.to_numpy()
-    finished_type_previous = get_data_var(previous_report, 'finished_type')
-    finished_suite_current = previous_report.sel(
-        exp=finished_exp_current,
-    ).suite.to_numpy()
-    finished_suite_previous = get_data_var(previous_report, 'finished_suite')
-    finished_exp = xr.Dataset(
-        data_vars={
-            'finished_date': (
-                ('finished_exp',),
-                [*finished_date_previous, *finished_date_current],
-            ),
-            'finished_type': (
-                ('finished_exp',),
-                [*finished_type_previous, *finished_type_current],
-            ),
-            'finished_suite': (
-                ('finished_exp',),
-                [*finished_suite_previous, *finished_suite_current],
-            ),
-        },
-        coords={
-            'finished_exp': (
-                'finished_exp',
-                [*finished_exp_previous, *finished_exp_current],
-            ),
-        },
-    )
-    return finished_exp.where(
-        now.to_datetime64() - finished_exp.finished_date < pd.Timedelta(hours=240),
-        drop=True,
-    )
-
-
-def get_report_diff(previous_report, report):
-    exp_current = get_coord(report, 'exp')
-    exp_previous = get_coord(previous_report, 'exp')
-    exp_diff = list(set(exp_previous) - set(exp_current))
-    return previous_report.sel(exp=exp_diff) if exp_diff else None
-
-
-def get_report(now, wdir, previous_report):
+def get_report_active(wdir, now):
     with overall_progres_bar() as progress:
         report = [
-            get_experiment_report(wdir, experiment, now)
+            get_report_active_experiment(wdir, experiment, now)
             for experiment in progress.track(
                 wdir.get_active_experiments(name=None, experiment_type=None),
                 description='preparing report',
             )
         ]
-    report = xr.concat(report, dim='exp')
-    return xr.merge((report, get_finished_exp(now, previous_report, report)))
+    return xr.concat(report, dim='exp')
 
 
-def get_previous_report(wdir):
-    try:
-        previous_report = wdir.get_report().isel(time=-1).load()
-        previous_report.close()
-    except FileNotFoundError:
-        previous_report = xr.Dataset()
-    return previous_report
+def get_report_finished(wdir, now):
+    active_paths = wdir.get_all_active_arxiv_paths()
+    experiments = {}
+    with overall_progres_bar() as progress:
+        for active_path in progress.track(
+            active_paths,
+            description='checking for finished experiments',
+        ):
+            suite, date = active_path.stem.rsplit('_', 1)
+            date = pd.to_datetime(date, format='%Y_%m_%d_%H_%M_%S').floor('h')
+            if now - date > pd.Timedelta('244h'):
+                continue
+            if suite not in experiments:
+                experiments[suite] = {}
+                experiments[suite]['date'] = date
+                experiments[suite]['experiments'] = {}
+            experiments[suite]['date'] = max(date, experiments[suite]['date'])
+            with active_path.open('r', encoding=None) as file:
+                for line in file:
+                    experiment_name, experiment_type = line.strip().split(': ')
+                    if experiment_name not in experiments[suite]['experiments']:
+                        experiments[suite]['experiments'][experiment_name] = {
+                            'experiment_type': experiment_type,
+                            'suite': suite,
+                            'date': date,
+                        }
+                    experiments[suite]['experiments'][experiment_name]['date'] = max(
+                        experiments[suite]['experiments'][experiment_name]['date'],
+                        date,
+                    )
+    finished_experiments = {
+        experiment_name: experiments[suite]['experiments'][experiment_name]
+        for suite in experiments
+        for experiment_name in experiments[suite]['experiments']
+        if experiments[suite]['experiments'][experiment_name]['date']
+        < experiments[suite]['date']
+    }
+    for experiment_name in finished_experiments:
+        ds = wdir.get_experiment_progress(experiment_name)
+        finished_experiments[experiment_name] |= {
+            'date_start': pd.Timestamp(ds.date_start),
+            'date_end': pd.Timestamp(ds.date_end),
+            'date_freq': ds.date_freq,
+        }
+    return xr.Dataset(
+        data_vars={
+            f'finished_{key}': (
+                ('finished_exp',),
+                [
+                    finished_experiments[experiment_name][key]
+                    for experiment_name in finished_experiments
+                ],
+            )
+            for key in (
+                'experiment_type',
+                'suite',
+                'date',
+                'date_start',
+                'date_end',
+                'date_freq',
+            )
+        },
+        coords={
+            'finished_exp': ('finished_exp', list(finished_experiments)),
+        },
+    )
 
 
 def write_report(wdir):
     wdir = WorkingDirectory(wdir)
     now = pd.Timestamp.now().floor('h')
-    previous_report = get_previous_report(wdir)
-    report = get_report(now, wdir, previous_report)
-    wdir.save_report(report)
-    report_diff = get_report_diff(previous_report, report)
-    if report_diff is not None:
-        wdir.save_report_diff(report_diff, now)
+    report_active = get_report_active(wdir, now)
+    report_finished = get_report_finished(wdir, now)
+    total_report = xr.merge((report_active, report_finished))
+    wdir.save_report(total_report)
 
 
 def download_report(wdir):
