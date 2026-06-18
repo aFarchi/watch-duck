@@ -36,25 +36,37 @@ class WorkingDirectory:
             if log_file.name.split('_', 1)[0] in suites
         ]
 
-    def get_active_path(self, name):
-        path_active = self.wdir / f'active/{name}.txt'
+    def archive_log_file(self, log_file):
+        path_archive = self.wdir / 'log_arxiv' / log_file.name
+        path_archive.parent.mkdir(parents=True, exist_ok=True)
+        log_file.rename(path_archive)
+
+    def get_active_path(self, name, date):
+        if date is None:
+            path_active = self.wdir / f'active/{name}.txt'
+        else:
+            path_active = self.wdir / f'active/arxiv/{name}_{date}.txt'
         path_active.parent.mkdir(parents=True, exist_ok=True)
         return path_active
 
     def get_all_active_paths(self):
         return sorted(self.wdir.glob('active/*.txt'))
 
-    def save_active_experiments(self, name, active_experiments):
-        path_active = self.get_active_path(name)
+    def save_active_experiments(self, name, date, active_experiments):
+        path_active = self.get_active_path(name, date.strftime('%Y_%m_%d_%H_%M_%S'))
         with path_active.open('w', encoding=None) as f:
             for experiment_name, experiment_type in active_experiments.items():
                 f.write(f'{experiment_name}: {experiment_type}\n')
+        path_latest_active = self.get_active_path(name, None)
+        if path_latest_active.exists():
+            path_latest_active.unlink()
+        path_active.symlink_to(path_latest_active)
 
     def get_active_experiments(self, name, experiment_type):
         if name is None:
             path_active_files = self.get_all_active_paths()
         else:
-            path_active_files = [self.get_active_path(name)]
+            path_active_files = [self.get_active_path(name, None)]
         experiments = []
         for path_active in path_active_files:
             with path_active.open('r', encoding=None) as file:

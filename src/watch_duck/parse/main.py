@@ -77,7 +77,11 @@ def parse_log_files(
                 chunk_size_progress,
             )
             overall_progress.save_one()
-            wdir.save_active_experiments(suite['name'], active_experiments)
-            log_file.unlink()
+            wdir.save_active_experiments(
+                suite['name'],
+                suite['date'],
+                active_experiments,
+            )
+            wdir.archive_log_file(log_file)
             overall_progress.cleanup_one()
             overall_progress.overall_one()
