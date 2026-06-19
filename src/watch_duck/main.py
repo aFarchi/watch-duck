@@ -5,6 +5,7 @@ import tomllib
 import rich.logging
 import rich_click as click
 
+import watch_duck.common
 import watch_duck.iver
 import watch_duck.parse
 import watch_duck.report
@@ -153,6 +154,16 @@ def run_iver():
             profiles=config['iver'],
             partial=partial,
         )
+
+
+@cli.command(name='clean')
+def clean():
+    """Clean up old files and logs."""
+    config = get_config()
+    watch_duck.common.clean_all(
+        config['main']['wdir'],
+        config['iver'],
+    )
 
 
 if __name__ == '__main__':

@@ -56,7 +56,7 @@ def get_report_active(wdir, now):
             get_report_active_experiment(wdir, experiment, now)
             for experiment in progress.track(
                 wdir.get_active_experiments(name=None, experiment_type=None),
-                description='preparing report',
+                description='preparing report (active exp.)',
             )
         ]
     return xr.concat(report, dim='exp')
@@ -68,7 +68,7 @@ def get_report_finished(wdir, now):
     with overall_progres_bar() as progress:
         for active_path in progress.track(
             active_paths,
-            description='checking for finished experiments',
+            description='preparing report (finished exp.)',
         ):
             suite, date = active_path.stem.split('_', 1)
             date = pd.to_datetime(date, format='%Y_%m_%d_%H_%M_%S').floor('h')
@@ -133,8 +133,8 @@ def get_report_finished(wdir, now):
 def write_report(wdir):
     wdir = WorkingDirectory(wdir)
     now = pd.Timestamp.now().floor('h')
-    report_finished = get_report_finished(wdir, now)
     report_active = get_report_active(wdir, now)
+    report_finished = get_report_finished(wdir, now)
     total_report = xr.merge((report_active, report_finished))
     wdir.save_report(total_report)
 

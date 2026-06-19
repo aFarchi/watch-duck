@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 
+import pandas as pd
 import xarray as xr
 
 logger = logging.getLogger(__name__)
@@ -118,3 +119,51 @@ class WorkingDirectory:
 
     def get_report_diff_files(self):
         return sorted(self.wdir.glob('report_diff/*.h5'))
+
+    def clean_log_arxiv(self, now):
+        log_arxiv_dir = self.wdir / 'log/arxiv'
+        if log_arxiv_dir.exists():
+            for log_file in log_arxiv_dir.glob('*.log'):
+                _, date = log_file.stem.split('_', 1)
+                date = pd.to_datetime(date, format='%Y_%m_%d_%H_%M_%S')
+                if now - date > pd.Timedelta('30d'):
+                    logger.info('removing log file: %s', log_file)
+                    log_file.unlink()
+
+    def clean_active_arxiv(self, now):
+        active_arxiv_dir = self.wdir / 'active/arxiv'
+        if active_arxiv_dir.exists():
+            for active_file in active_arxiv_dir.glob('*.txt'):
+                _, date = active_file.stem.split('_', 1)
+                date = pd.to_datetime(date, format='%Y_%m_%d_%H_%M_%S')
+                if now - date > pd.Timedelta('30d'):
+                    logger.info('removing active file: %s', active_file)
+                    active_file.unlink()
+
+    def clean_slurm_arxiv(self, now):
+        slurm_dir = self.wdir / 'slurm'
+        if slurm_dir.exists():
+            for slurm_file in slurm_dir.glob('*.out'):
+                date = pd.Timestamp(slurm_file.stat().st_mtime, unit='s')
+                if now - date > pd.Timedelta('30d'):
+                    logger.info('removing slurm file: %s', slurm_file)
+                    slurm_file.unlink()
+
+
+def clean_iver(profile):
+    config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
+    with pathlib.Path(config_file).open('rb') as f:
+        iver_path = pathlib.Path(f.readline().strip())
+    for iver_file in iver_path.glob('stats/verify_*_0001_tmp*.nc'):
+        logger.info('removing IVER file: %s', iver_file)
+        iver_file.unlink()
+
+
+def clean_all(wdir, profiles):
+    wdir = WorkingDirectory(wdir)
+    now = pd.Timestamp.now()
+    wdir.clean_log_arxiv(now)
+    wdir.clean_active_arxiv(now)
+    wdir.clean_slurm_arxiv(now)
+    for profile in profiles:
+        clean_iver(profile)
