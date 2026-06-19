@@ -57,19 +57,21 @@ def write_report():
 
 @cli.command(name='download')
 def download_report():
-    """Download progress report from IVER site."""
+    """Download progress report from the website."""
     config = get_config()
     watch_duck.report.download_report(
         **config['main'],
+        **config['site'],
     )
 
 
 @cli.command(name='upload')
 def upload_report():
-    """Upload progress report to IVER site."""
+    """Upload progress report to the website."""
     config = get_config()
     watch_duck.report.upload_report(
         **config['main'],
+        **config['site'],
     )
 
 
@@ -130,6 +132,7 @@ def show(download):
     if download:
         watch_duck.report.download_report(
             **config['main'],
+            **config['site'],
         )
     for experiment_type in ['fc', 'lw', 'elda']:
         watch_duck.summary.show_summary(

@@ -146,7 +146,7 @@ def write_report(wdir):
     wdir.save_report(total_report)
 
 
-def download_report(wdir):
+def download_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
         subprocess.run(
@@ -154,9 +154,9 @@ def download_report(wdir):
                 'sitesctl',
                 'site',
                 '--space',
-                'daaf',
+                space,
                 '--name',
-                'iver',
+                name,
                 'content',
                 'download',
                 '--path',
@@ -165,13 +165,13 @@ def download_report(wdir):
             ],
             check=True,
         )
-    report = wdir.wdir / 'daaf/iver/report.h5'
+    report = wdir.wdir / space / name / 'report.h5'
     report.rename(wdir.wdir / 'report.h5')
-    (wdir.wdir / 'daaf/iver').rmdir()
-    (wdir.wdir / 'daaf').rmdir()
+    (wdir.wdir / space / name).rmdir()
+    (wdir.wdir / space).rmdir()
 
 
-def upload_report(wdir):
+def upload_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
         subprocess.run(
@@ -179,9 +179,9 @@ def upload_report(wdir):
                 'sitesctl',
                 'site',
                 '--space',
-                'daaf',
+                space,
                 '--name',
-                'iver',
+                name,
                 'content',
                 'upload',
                 '--source',
