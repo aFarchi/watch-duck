@@ -1,5 +1,7 @@
 # watch-duck
 
+[![PyPI version](https://badge.fury.io/py/watch-duck.svg)](https://badge.fury.io/py/watch-duck)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 Toolbox to monitor the progress of ecflow experiments.
 
 ## Installation
@@ -96,26 +98,36 @@ e.g. using `hpc-cron`.
 
 #### Upload
 
-On the HPC, use the following command to upload the latest report to daaf's
-IVER site:
+On the HPC, use the following command to upload the latest report to the
+specified website:
 ```sh
 watch-duck upload
 ```
-For this command, you don't need to provide further config, but you need `sitesctl`.
-You also need writing permission on daaf's IVER site.
+For this command, you need `sitesctl` and you need to provide the following config:
+```toml
+[site]
+space = '<space>'
+name = '<name>'
+```
+where `<space>` and `<name>` correspond to the space and name of the website.
 
 Ideally, you should call this command each time you updated the report,
 e.g. using `hpc-cron`.
 
 #### Download
 
-On any device, use the following command to download the latest report from daaf's
-IVER site:
+On any device, use the following command to download the latest report from
+the specified website:
 ```sh
 watch-duck download
 ```
-For this command, you don't need to provide further config, but you need `sitesctl`.
-You also need reading permission on daaf's IVER site.
+For this command, you need `sitesctl` and you need to provide the following config:
+```toml
+[site]
+space = '<space>'
+name = '<name>'
+```
+where `<space>` and `<name>` correspond to the space and name of the website.
 
 Ideally, you should call this command before showing a summary.
 
@@ -216,7 +228,8 @@ and every day you shoud call:
 
 NB: if you are only interested in the following suites: daaf, dae, dav, nemc,
 these are already covered by daaf, and you can skip this first step. Just
-make sure to set your `/wdir` to daaf's `/wdir` if you are on the HPC. 
+make sure to set your `/wdir` to daaf's `/wdir` if you are on the HPC, or
+to use daaf's `iver` site if you are on any other device.
 
 Then, on any device, you can call at any time:
 - the `download` command (you don't need this if you are on the HPC);
