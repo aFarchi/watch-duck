@@ -6,6 +6,15 @@ requires = ["hatchling"]
 authors = [
     {name = "Alban Farchi", email = "alban.farchi@ecmwf.int"},
 ]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
 dependencies = [
     "bottleneck",
     "dask",
@@ -17,12 +26,18 @@ dependencies = [
     "xarray",
     "zarr",
 ]
+description = "Personal python toolbox to track progress of ecflow experiments"
 name = "watch-duck"
+readme = "README.md"
 requires-python = ">= 3.11"
-version = "0.1.0"
+version = "1.0.0"
 
 [project.scripts]
 watch-duck = "watch_duck.main:cli"
+
+[project.urls]
+Issues = "https://github.com/aFarchi/watch-duck/issues"
+Source = "https://github.com/aFarchi/watch-duck"
 
 [tool.ruff]
 preview = true
@@ -58,6 +73,7 @@ watch-duck = { path = ".", editable = true }
 [tool.pixi.tasks]
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
+show = "watch-duck show"
 
 [tool.pixi.dependencies]
 bottleneck = ">=1.6.0,<2"
