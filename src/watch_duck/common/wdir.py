@@ -152,7 +152,7 @@ class WorkingDirectory:
 
 def clean_iver(profile):
     config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
-    with pathlib.Path(config_file).open('rb') as f:
+    with pathlib.Path(config_file).open('r', encoding=None) as f:
         iver_path = pathlib.Path(f.readline().strip())
     for iver_file in iver_path.glob('stats/verify_*_0001_tmp*.nc'):
         logger.info('removing IVER file: %s', iver_file)
