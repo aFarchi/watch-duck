@@ -62,7 +62,7 @@ def run_partial_iver(wdir, date_start, date_end, date_freq, profile, version=Non
 
 def check_full_iver(exp, profile):
     config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
-    with pathlib.Path(config_file).open('rb') as f:
+    with pathlib.Path(config_file).open('r') as f:
         iver_path = pathlib.Path(f.readline().strip())
     iver_stats_sfc = iver_path / f'stats/verify_{exp}_0001_{profile}_sfc.nc'
     iver_stats_lvl = iver_path / f'stats/verify_{exp}_0001_{profile}.nc'
