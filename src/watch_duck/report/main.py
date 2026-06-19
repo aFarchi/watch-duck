@@ -100,12 +100,19 @@ def get_report_finished(wdir, now):
         < experiments[suite]['date']
     }
     for experiment_name in finished_experiments:
-        ds = wdir.get_experiment_progress(experiment_name)
-        finished_experiments[experiment_name] |= {
-            'date_start': pd.Timestamp(ds.date_start),
-            'date_end': pd.Timestamp(ds.date_end),
-            'date_freq': ds.date_freq,
-        }
+        try:
+            ds = wdir.get_experiment_progress(experiment_name)
+            finished_experiments[experiment_name] |= {
+                'date_start': pd.Timestamp(ds.date_start),
+                'date_end': pd.Timestamp(ds.date_end),
+                'date_freq': ds.date_freq,
+            }
+        except FileNotFoundError:
+            finished_experiments[experiment_name] |= {
+                'date_start': pd.NaT,
+                'date_end': pd.NaT,
+                'date_freq': np.nan,
+            }
     return xr.Dataset(
         data_vars={
             f'finished_{key}': (
