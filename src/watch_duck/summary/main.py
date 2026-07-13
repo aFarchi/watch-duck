@@ -78,7 +78,7 @@ def show_summary(
     vref_elda,
 ):
     wdir = WorkingDirectory(wdir)
-    report = wdir.get_report().load()
+    report = wdir.get_report()
     if suite != 'all':
         report = report.where(report.suite == suite, drop=True)
     if experiment_type != 'all':
@@ -124,7 +124,7 @@ def show_summary(
 
 def show_finished(wdir):
     wdir = WorkingDirectory(wdir)
-    report = wdir.get_report().isel(time=-1).load()
+    report = wdir.get_report(time=-1)
     table = Table(title=format_finished_title(np.datetime64(report.time.to_numpy())))
     table.add_column('ID', style='cyan')
     table.add_column('Suite', style='cyan')
