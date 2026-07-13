@@ -119,6 +119,9 @@ def run_iver(
             continue
         if exp in report.exp.to_numpy():
             date_current = get_date_current(report.sel(exp=exp))
+            if date_current <= date_start:
+                logger.info('skipping experiment "%s" (not enough date)', exp)
+                continue
             date_current = normalise_date_current(date_current, date_start, date_freq)
             tag = 'tmp'
             if date_current > date_end:
