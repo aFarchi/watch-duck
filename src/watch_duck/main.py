@@ -148,15 +148,38 @@ def show(download):
 
 
 @cli.command(name='iver')
-def run_iver():
+@click.argument('profile', type=str)
+@click.option(
+    '--experiment',
+    '-e',
+    type=str,
+    default='all',
+    help='Experiment to evaluate (default: "all")',
+)
+@click.option(
+    '--experiment-type',
+    '-t',
+    type=click.Choice(['fc', 'lw', 'elda']),
+    default='fc',
+    help='Experiment type(default: "fc")',
+)
+@click.option(
+    '--clean',
+    '-c',
+    is_flag=True,
+    default=False,
+    help='Clean run (default: False)',
+)
+def run_iver(profile, experiment, experiment_type, clean):
     """Run IVER on compatible forecast experiments."""
     config = get_config()
-    for partial in (False, True):
-        watch_duck.iver.run_iver(
-            **config['main'],
-            profiles=config['iver'],
-            partial=partial,
-        )
+    watch_duck.iver.run_iver(
+        wdir=config['main']['wdir'],
+        profile=profile,
+        experiment=experiment,
+        experiment_type=experiment_type,
+        clean=clean,
+    )
 
 
 @cli.command(name='clean')
