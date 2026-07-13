@@ -151,20 +151,9 @@ class WorkingDirectory:
                     slurm_file.unlink()
 
 
-def clean_iver(profile):
-    config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
-    with pathlib.Path(config_file).open('r', encoding=None) as f:
-        iver_path = pathlib.Path(f.readline().strip())
-    for iver_file in iver_path.glob('stats/verify_*_0001_tmp*.nc'):
-        logger.info('removing IVER file: %s', iver_file)
-        iver_file.unlink()
-
-
-def clean_all(wdir, profiles):
+def clean_all(wdir):
     wdir = WorkingDirectory(wdir)
     now = pd.Timestamp.now()
     wdir.clean_log_arxiv(now)
     wdir.clean_active_arxiv(now)
     wdir.clean_slurm_arxiv(now)
-    for profile in profiles:
-        clean_iver(profile)

@@ -187,8 +187,7 @@ def clean():
     """Clean up old files and logs."""
     config = get_config()
     watch_duck.common.clean_all(
-        config['main']['wdir'],
-        config['iver'],
+        **config['main'],
     )
 
 

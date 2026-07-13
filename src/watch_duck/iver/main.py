@@ -56,21 +56,29 @@ def iver(
     )
 
 
-def get_profile_config(profile):
+def get_iver_path(profile):
     config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
     with pathlib.Path(config_file).open('r', encoding=None) as f:
-        iver_path = pathlib.Path(f.readline().strip())
-    config_file = iver_path / 'watch_duck.yaml'
+        return pathlib.Path(f.readline().strip())
+
+
+def get_profile_config(profile):
+    config_file = get_iver_path(profile) / 'watch_duck.yaml'
     return OmegaConf.load(config_file)
 
 
 def check_full_iver(exp, profile):
-    config_file = pathlib.Path('~').expanduser() / f'.iver.{profile}'
-    with pathlib.Path(config_file).open('r', encoding=None) as f:
-        iver_path = pathlib.Path(f.readline().strip())
+    iver_path = get_iver_path(profile)
     iver_stats_sfc = iver_path / f'stats/verify_{exp}_0001_{profile}_sfc.nc'
     iver_stats_lvl = iver_path / f'stats/verify_{exp}_0001_{profile}.nc'
     return iver_stats_sfc.exists() and iver_stats_lvl.exists()
+
+
+def clean_iver(profile):
+    iver_path = get_iver_path(profile)
+    for iver_file in iver_path.glob('stats/verify_*_0001_tmp*.nc'):
+        logger.info('removing tmp IVER file: %s', iver_file)
+        iver_file.unlink()
 
 
 def get_date_current(exp_report):
@@ -133,3 +141,5 @@ def run_iver(
             clean=clean,
             check=False,
         )
+
+    clean_iver(profile)
