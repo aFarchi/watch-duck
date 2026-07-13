@@ -149,7 +149,7 @@ def write_report(wdir):
 def download_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
-        subprocess.run(
+        subprocess.run(  # noqa: S603
             [  # noqa: S607
                 'sitesctl',
                 'site',
@@ -174,7 +174,7 @@ def download_report(wdir, space, name):
 def upload_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
-        subprocess.run(
+        subprocess.run(  # noqa: S603
             [  # noqa: S607
                 'sitesctl',
                 'site',

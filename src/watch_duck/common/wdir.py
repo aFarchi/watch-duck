@@ -109,8 +109,7 @@ class WorkingDirectory:
             message = f'Report file does not exist: {path_report}'
             raise FileNotFoundError(message)
         with xr.open_dataset(path_report, engine='h5netcdf') as ds:
-            ds = ds.isel(**isel).load()
-        return ds
+            return ds.isel(**isel).load()
 
     def save_report_diff(self, ds, now):
         path_report_diff = (
