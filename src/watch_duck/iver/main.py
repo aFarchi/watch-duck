@@ -34,7 +34,7 @@ def iver(
         basetime = '00'
     iver_file = pathlib.Path(__file__).parent / 'iver.sh'
     version = '' if version is None else f'/{version}'
-    logger.info('Running %s/%s IVER for %s until %s', profile, tag, exp, date_end)
+    logger.info('running %s/%s IVER for %s until %s', profile, tag, exp, date_end)
     subprocess.run(  # noqa: S603
         [
             '/bin/sh',
@@ -74,11 +74,15 @@ def check_full_iver(exp, profile):
     return iver_stats_sfc.exists() and iver_stats_lvl.exists()
 
 
-def clean_iver(profile):
+def clean_iver(profile, experiments):
     iver_path = get_iver_path(profile)
-    for iver_file in iver_path.glob('stats/verify_*_0001_tmp*.nc'):
-        logger.info('removing tmp IVER file: %s', iver_file)
-        iver_file.unlink()
+    for exp in experiments:
+        for level in ('', '_sfc'):
+            full_iver = iver_path / f'stats/verify_{exp}_0001_{profile}{level}.nc'
+            tmp_iver = iver_path / f'stats/verify_{exp}_0001_tmp{level}.nc'
+            if full_iver.exists() and tmp_iver.exists():
+                logger.info('removing tmp file: %s', tmp_iver)
+                tmp_iver.unlink()
 
 
 def get_date_current(exp_report):
@@ -115,16 +119,16 @@ def run_iver(
     report = wdir.get_report(time=-1).load()
     for exp, exp_type in experiments.items():
         if check_full_iver(exp, profile):
-            logger.info('skipping experiment "%s" (already done)', exp)
+            logger.info('skipping %s/%s IVER for %s (already done)', profile, profile, exp)
             continue
         if exp in report.exp.to_numpy():
             date_current = get_date_current(report.sel(exp=exp))
             if date_current <= date_start:
-                logger.info('skipping experiment "%s" (not enough date)', exp)
+                logger.info('skipping %s/tmp IVER for %s (too early)', profile, exp)
                 continue
             date_current = normalise_date_current(date_current, date_start, date_freq)
             tag = 'tmp'
-            if date_current > date_end:
+            if date_current >= date_end:
                 date_current = date_end
                 tag = profile
         else:
@@ -145,4 +149,4 @@ def run_iver(
             check=False,
         )
 
-    clean_iver(profile)
+    clean_iver(profile, config.experiments)
