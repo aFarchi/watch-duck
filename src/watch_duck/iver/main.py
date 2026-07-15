@@ -119,7 +119,12 @@ def run_iver(
     report = wdir.get_report(time=-1).load()
     for exp, exp_type in experiments.items():
         if check_full_iver(exp, profile):
-            logger.info('skipping %s/%s IVER for %s (already done)', profile, profile, exp)
+            logger.info(
+                'skipping %s/%s IVER for %s (already done)',
+                profile,
+                profile,
+                exp,
+            )
             continue
         if exp in report.exp.to_numpy():
             date_current = get_date_current(report.sel(exp=exp))
