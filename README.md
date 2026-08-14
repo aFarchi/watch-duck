@@ -1,6 +1,7 @@
 # watch-duck
 
 [![PyPI version](https://badge.fury.io/py/watch-duck.svg)](https://badge.fury.io/py/watch-duck)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/watch-duck.svg)](https://anaconda.org/conda-forge/watch-duck)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 Toolbox to monitor the progress of ecflow experiments.
 
