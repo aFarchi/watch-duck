@@ -1,3 +1,4 @@
+import importlib.metadata
 import logging
 import pathlib
 import tomllib
@@ -12,6 +13,13 @@ import watch_duck.report
 import watch_duck.summary
 
 
+def get_version():
+    try:
+        return importlib.metadata.version('watch-duck')
+    except importlib.metadata.PackageNotFoundError:
+        return 'unknown'
+
+
 def get_config():
     config_file = pathlib.Path('~').expanduser() / '.config/watch-duck.toml'
     with pathlib.Path(config_file).open('rb') as f:
@@ -19,6 +27,7 @@ def get_config():
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
+@click.version_option(get_version(), '--version', '-v', prog_name='watch-duck')
 @click.option(
     '--debug',
     '-d',
