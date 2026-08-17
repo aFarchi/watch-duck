@@ -1,8 +1,6 @@
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-try:
+try:  # ruff:ignore[non-empty-init-module]
     __version__ = version('watch-duck')
 except PackageNotFoundError:
     __version__ = 'unknown'
-

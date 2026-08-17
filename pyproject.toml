@@ -59,7 +59,7 @@ ignore = [
     # no anotations
     "ANN",
     # no copyright on files
-    "CPY001",
+    "missing-copyright-notice",
     # no docstrings
     "D",
 ]

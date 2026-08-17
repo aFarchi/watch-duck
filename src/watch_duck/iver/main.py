@@ -1,6 +1,6 @@
 import logging
 import pathlib
-import subprocess  # noqa: S404
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 
 import pandas as pd
 from omegaconf import OmegaConf
@@ -35,7 +35,7 @@ def iver(
     iver_file = pathlib.Path(__file__).parent / 'iver.sh'
     version = '' if version is None else f'/{version}'
     logger.info('running %s/%s IVER for %s until %s', profile, tag, exp, date_end)
-    subprocess.run(  # noqa: S603
+    subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
         [
             '/bin/sh',
             str(iver_file),

@@ -48,7 +48,7 @@ def parse_family(log_file, state):
 
 def parse_suite(log_file):
     full_log = False
-    with sub_task_progress_bar() as sp:  # noqa: SIM117
+    with sub_task_progress_bar() as sp:  # ruff:ignore[multiple-with-statements]
         with sp.open(log_file, mode='r', encoding=None, description='reading') as f:
             experiments = {}
             for line in f:

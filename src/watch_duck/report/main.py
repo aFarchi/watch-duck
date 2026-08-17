@@ -1,5 +1,5 @@
 import logging
-import subprocess  # noqa: S404
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 
 import numpy as np
 import pandas as pd
@@ -149,8 +149,8 @@ def write_report(wdir):
 def download_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
-        subprocess.run(  # noqa: S603
-            [  # noqa: S607
+        subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+            [  # ruff:ignore[start-process-with-partial-path]
                 'sitesctl',
                 'site',
                 '--space',
@@ -174,8 +174,8 @@ def download_report(wdir, space, name):
 def upload_report(wdir, space, name):
     wdir = WorkingDirectory(wdir)
     with wdir.working_directory():
-        subprocess.run(  # noqa: S603
-            [  # noqa: S607
+        subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+            [  # ruff:ignore[start-process-with-partial-path]
                 'sitesctl',
                 'site',
                 '--space',
