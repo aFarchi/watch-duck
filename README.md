@@ -178,26 +178,41 @@ The `show` command is simply a concatenation of the `download` (optional),
 On the HPC, use the following command to compute the IVER scores of compatible
 fc experiments:
 ```sh
-watch-duck iver
+watch-duck iver <profile>
 ```
-For each IVER configuration, this will use IVER to (1) download the forecasts
-of the compatible fc experiments that are still ongoing and (2) compute the
-IVER scores of the compatible fc experiments that recently finished.
-
-For this command, for each IVER configuration, you need to provide the
-following config:
-```toml
-[iver.<profile>]
-version = 3.17
-date_start = '2025-01-01'
-date_end = '2025-12-31'
-date_freq = 48
+where `<profile>` is the name of the IVER profile to run. Following IVER's
+behaviour, the profile's working directory is found in the `~/.iver.<profile>` file.
+Within this directory, `watch-duck iver` will look for a yaml file named 
+`/iver-wdir/watch_duck.yaml`. This yaml file contains all the parameters used
+to configure IVER for that specific profile:
+```yaml
+date_start: 2025-01-01
+date_end: 2025-12-27
+date_freq: 288h
+version: 3.17
+obstat: false
+tech: false
+experiments:
+  exp_id: exp_type
+  ...
 ```
 where you can specify:
-- the name of the IVER profile, as the name of the subsection;
 - the IVER version;
 - the start and end date of the forecasts;
-- the frequency (in hours) between forecasts.
+- the frequency between forecasts;
+- whether to include obstat and a tech report;
+- a list of all experiments IDs and their corresponding type.
+
+For each experiment within this list, `watch-duck iver` will use IVER to (1)
+either download the latest forecasts if the experiment is still ongoing or (2)
+compute the IVER scores if the experiment is finished and the scores have not been
+computed yet.
+
+You can bypass the list of experiments and use IVER on a specific
+experiment by providing its ID via the `--experiment` option and its type via
+the `--experiment-type` option. You can also force IVER to re-download the forecasts
+from scratch using the `--clean` option. These additional options are summarised
+in the help option of the `watch-duck iver` command.
 
 Ideally, you should call this command on a regular basis, typically once a day,
 e.g. using `hpc-cron`.

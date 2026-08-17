@@ -161,7 +161,7 @@ def show(download):
     '-t',
     type=click.Choice(['fc', 'lw', 'elda']),
     default='fc',
-    help='Experiment type(default: "fc")',
+    help='Experiment type of the specified experiment if not "all" (default: "fc")',
 )
 @click.option(
     '--clean',
