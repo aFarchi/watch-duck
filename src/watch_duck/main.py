@@ -1,4 +1,3 @@
-import importlib.metadata
 import logging
 import pathlib
 import tomllib
@@ -6,18 +5,12 @@ import tomllib
 import rich.logging
 import rich_click as click
 
+import watch_duck
 import watch_duck.common
 import watch_duck.iver
 import watch_duck.parse
 import watch_duck.report
 import watch_duck.summary
-
-
-def get_version():
-    try:
-        return importlib.metadata.version('watch-duck')
-    except importlib.metadata.PackageNotFoundError:
-        return 'unknown'
 
 
 def get_config():
@@ -27,7 +20,7 @@ def get_config():
 
 
 @click.group(context_settings={'help_option_names': ['-h', '--help']})
-@click.version_option(get_version(), '--version', '-v', prog_name='watch-duck')
+@click.version_option(watch_duck.__version__, '--version', '-v', prog_name='watch-duck')
 @click.option(
     '--debug',
     '-d',
