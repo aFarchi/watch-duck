@@ -4,3 +4,7 @@
 
 - First release.
 
+## Version 1.1.0 (2026-08-17)
+
+- Update in IVER.
+
