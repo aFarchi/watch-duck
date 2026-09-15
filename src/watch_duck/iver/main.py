@@ -84,19 +84,22 @@ def check_full_netcdf(exp, profile):
 
 
 def get_grib_paths(iver_path, exp, dates, suffix):
-    return [
-        iver_path / f'grib/{exp}/{date:%Y%m%d%H}{suffix}.grib' for date in dates
-    ]
+    return [iver_path / f'grib/{exp}/{date:%Y%m%d%H}{suffix}.grib' for date in dates]
 
 
 def concatenate_grib_files(grib_files, output_file):
-    ds = xr.concat(
-        [xr.open_dataset(path, engine='cfgrib') for path in grib_files],
-        dim='time',
-    ).rename(
-        time='julian_day',
-        isobaricInhPa='level',
-    ).sortby('level')
+    ds = (
+        xr
+        .concat(
+            [xr.open_dataset(path, engine='cfgrib') for path in grib_files],
+            dim='time',
+        )
+        .rename(
+            time='julian_day',
+            isobaricInhPa='level',
+        )
+        .sortby('level')
+    )
     ds = ds.assign_coords(
         step=(ds.step / pd.Timedelta('1h')).astype('float32'),
         level=ds.level.astype('float32'),
@@ -104,7 +107,7 @@ def concatenate_grib_files(grib_files, output_file):
         longitude=ds.longitude.astype('float32'),
     )
     ds = ds.drop_vars(
-        set(ds.coords) - {'julian_day', 'step', 'level', 'latitude', 'longitude'}
+        set(ds.coords) - {'julian_day', 'step', 'level', 'latitude', 'longitude'},
     )
     ds = ds.drop_attrs(deep=True)
     ds.to_netcdf(output_file, engine='h5netcdf')
@@ -127,7 +130,11 @@ def grib_to_netcdf(profile):
         for suffix in ('', '_sfc'):
             output_file = iver_path / f'grib/{exp}{suffix}_fc.nc'
             if output_file.exists():
-                logger.info('skipping GRIB files for %s/%s (nc file already exists)', exp, suffix)
+                logger.info(
+                    'skipping GRIB files for %s/%s (nc file already exists)',
+                    exp,
+                    suffix,
+                )
                 continue
 
             grib_files = get_grib_paths(iver_path, exp, dates, suffix)
@@ -145,7 +152,7 @@ def grib_to_netcdf(profile):
             concatenate_grib_files(grib_files, output_file)
             output_file.chmod(
                 output_file.stat().st_mode
-                & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
+                & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH),
             )
 
         logger.info('removing GRIB files for %s', exp)
