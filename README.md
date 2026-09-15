@@ -217,6 +217,19 @@ in the help option of the `watch-duck iver` command.
 Ideally, you should call this command on a regular basis, typically once a day,
 e.g. using `hpc-cron`.
 
+#### GRIB to NetCDF
+
+To gather all forecasts configured for an IVER profile into NetCDF files, run:
+```sh
+watch-duck grib-to-nc <profile>
+```
+For each experiment and each configured forecast date, this expects the files
+`grib/<exp>/<YYYYmmddHH>_fc.grib` and
+`grib/<exp>/<YYYYmmddHH>_sfc_fc.grib` in the profile's working directory.
+An experiment is skipped until every expected file exists, or when its IVER
+statistics or either output already exists. The resulting files are written to
+`grib/<exp>_fc.nc` and `grib/<exp>_sfc_fc.nc`.
+
 #### Clean
 
 On the HPC, use the following command to clean old and temporary files:

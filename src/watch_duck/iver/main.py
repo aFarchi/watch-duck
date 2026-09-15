@@ -1,8 +1,10 @@
 import logging
 import pathlib
+import stat
 import subprocess  # ruff:ignore[suspicious-subprocess-import]
 
 import pandas as pd
+import xarray as xr
 from omegaconf import OmegaConf
 
 from watch_duck.common.wdir import WorkingDirectory
@@ -72,6 +74,91 @@ def check_full_iver(exp, profile):
     iver_stats_sfc = iver_path / f'stats/verify_{exp}_0001_{profile}_sfc.nc'
     iver_stats_lvl = iver_path / f'stats/verify_{exp}_0001_{profile}.nc'
     return iver_stats_sfc.exists() and iver_stats_lvl.exists()
+
+
+def check_full_netcdf(exp, profile):
+    iver_path = get_iver_path(profile)
+    netcdf_sfc = iver_path / f'grib/{exp}_sfc_fc.nc'
+    netcdf_lvl = iver_path / f'grib/{exp}_fc.nc'
+    return netcdf_sfc.exists() and netcdf_lvl.exists()
+
+
+def get_grib_paths(iver_path, exp, dates, suffix):
+    return [
+        iver_path / f'grib/{exp}/{date:%Y%m%d%H}{suffix}.grib' for date in dates
+    ]
+
+
+def concatenate_grib_files(grib_files, output_file):
+    ds = xr.concat(
+        [xr.open_dataset(path, engine='cfgrib') for path in grib_files],
+        dim='time',
+    ).rename(
+        time='julian_day',
+        isobaricInhPa='level',
+    ).sortby('level')
+    ds = ds.assign_coords(
+        step=(ds.step / pd.Timedelta('1h')).astype('float32'),
+        level=ds.level.astype('float32'),
+        latitude=ds.latitude.astype('float32'),
+        longitude=ds.longitude.astype('float32'),
+    )
+    ds = ds.drop_vars(
+        set(ds.coords) - {'julian_day', 'step', 'level', 'latitude', 'longitude'}
+    )
+    ds = ds.drop_attrs(deep=True)
+    ds.to_netcdf(output_file, engine='h5netcdf')
+
+
+def grib_to_netcdf(profile):
+    iver_path = get_iver_path(profile)
+    config = get_profile_config(profile)
+    dates = pd.date_range(
+        start=config.date_start,
+        end=config.date_end,
+        freq=config.date_freq,
+    )
+
+    for exp in config.experiments:
+        if check_full_iver(exp, profile):
+            logger.info('skipping GRIB files for %s (IVER stats already exist)', exp)
+            continue
+
+        for suffix in ('', '_sfc'):
+            output_file = iver_path / f'grib/{exp}{suffix}_fc.nc'
+            if output_file.exists():
+                logger.info('skipping GRIB files for %s/%s (nc file already exists)', exp, suffix)
+                continue
+
+            grib_files = get_grib_paths(iver_path, exp, dates, suffix)
+            missing_files = [path for path in grib_files if not path.exists()]
+            if missing_files:
+                logger.info(
+                    'skipping GRIB files for %s/%s (%d forecast files missing)',
+                    exp,
+                    suffix,
+                    len(missing_files),
+                )
+                continue
+
+            logger.info('concatenating GRIB files for %s/%s', exp, suffix)
+            concatenate_grib_files(grib_files, output_file)
+            output_file.chmod(
+                output_file.stat().st_mode
+                & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
+            )
+
+        logger.info('removing GRIB files for %s', exp)
+        for suffix in ('', '_sfc'):
+            output_file = iver_path / f'grib/{exp}{suffix}_fc.nc'
+            if not output_file.exists():
+                logger.critical('expected output file does not exist: %s', output_file)
+                logger.critical('skipping removal of GRIB files')
+                continue
+            for path in get_grib_paths(iver_path, exp, dates, suffix):
+                if path.exists():
+                    path.unlink()
+        (iver_path / f'grib/{exp}').rmdir()
 
 
 def clean_iver(profile, experiments):
@@ -155,3 +242,45 @@ def run_iver(
         )
 
     clean_iver(profile, config.experiments)
+
+
+def run_iver_no_mars(
+    *,
+    wdir,
+    profile,
+):
+    wdir = WorkingDirectory(wdir)
+    config = get_profile_config(profile)
+    date_start = pd.Timestamp(config.date_start)
+    date_end = pd.Timestamp(config.date_end)
+    date_freq = pd.Timedelta(config.date_freq)
+
+    for exp, exp_type in config.experiments.items():
+        if check_full_iver(exp, profile):
+            logger.info(
+                'skipping %s IVER for %s (already done)',
+                profile,
+                exp,
+            )
+            continue
+        if not check_full_netcdf(exp, profile):
+            logger.info(
+                'skipping %s IVER for %s (missing forecasts)',
+                profile,
+                exp,
+            )
+            continue
+        iver(
+            version=config.version,
+            exp=exp,
+            tag=profile,
+            date_start=date_start,
+            date_end=date_end,
+            forecast_only=(exp_type == 'fc'),
+            date_freq=date_freq,
+            profile=profile,
+            obstat=config.obstat,
+            tech=config.tech,
+            clean=False,
+            check=False,
+        )

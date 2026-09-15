@@ -184,6 +184,24 @@ def run_iver(profile, experiment, experiment_type, clean):
     )
 
 
+@cli.command(name='grib-to-nc')
+@click.argument('profile', type=str)
+def grib_to_netcdf(profile):
+    """Gather a profile's individual GRIB forecasts into NetCDF files."""
+    watch_duck.iver.grib_to_netcdf(profile)
+
+
+@cli.command(name='iver-no-mars')
+@click.argument('profile', type=str)
+def run_iver_no_mars(profile):
+    """Run IVER on compatible forecast experiments without using MARS."""
+    config = get_config()
+    watch_duck.iver.run_iver_no_mars(
+        wdir=config['main']['wdir'],
+        profile=profile,
+    )
+
+
 @cli.command(name='clean')
 def clean():
     """Clean up old files and logs."""
