@@ -24,6 +24,7 @@ def get_summary(ds, delta_t, exclude_aborted, exclude_suspended):
     )
     ds['index'] = xr.where(ds.index >= 0, ds.index, np.nan)
     delta_index = ds.index.diff(dim='time', label='lower')
+    delta_index = np.maximum(delta_index, 0)
     hours_valid = xr.where(ds.state.isel(time=slice(0, -1)) != -1, 1, 0)
     hours_non_aborted = xr.where(
         ds.state.isel(time=slice(0, -1)) != encode_state('aborted'),
