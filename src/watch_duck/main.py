@@ -188,7 +188,11 @@ def run_iver(profile, experiment, experiment_type, clean):
 @click.argument('profile', type=str)
 def grib_to_netcdf(profile):
     """Gather a profile's individual GRIB forecasts into NetCDF files."""
-    watch_duck.iver.grib_to_netcdf(profile)
+    config = get_config()
+    watch_duck.iver.grib_to_netcdf(
+        profile=profile,
+        **config['forecasts'],
+    )
 
 
 @cli.command(name='iver-no-mars')

@@ -3,6 +3,7 @@ import pathlib
 import stat
 import subprocess  # ruff:ignore[suspicious-subprocess-import]
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 from omegaconf import OmegaConf
@@ -25,6 +26,7 @@ def iver(
     obstat,
     tech,
     clean,
+    nochecks,
     check,
 ):
     date_freq //= pd.Timedelta('1h')
@@ -53,6 +55,7 @@ def iver(
             '' if obstat else '/noobstat,$',
             '' if tech else '/notech,$',
             '/clean,$' if clean else '',
+            '/nochecks,$' if nochecks else '',
         ],
         check=check,
     )
@@ -83,37 +86,86 @@ def check_full_netcdf(exp, profile):
     return netcdf_sfc.exists() and netcdf_lvl.exists()
 
 
-def get_grib_paths(iver_path, exp, dates, suffix):
-    return [iver_path / f'grib/{exp}/{date:%Y%m%d%H}{suffix}.grib' for date in dates]
+def get_grib_paths(tmpdir, exp, dates, suffix):
+    tmpdir = pathlib.Path(tmpdir)
+    return [tmpdir / f'{exp}/{date:%Y%m%d%H}{suffix}.grib' for date in dates]
 
 
-def concatenate_grib_files(grib_files, output_file):
-    ds = (
-        xr
-        .concat(
-            [xr.open_dataset(path, engine='cfgrib') for path in grib_files],
-            dim='time',
+def get_netcdf_encoding(ds):
+    chunked_dims = {'julian_day', 'step'}
+    encoding = {}
+    for name, variable in ds.data_vars.items():
+        variable_encoding = {
+            'zlib': True,
+            'shuffle': True,
+            'complevel': 1,
+            'chunksizes': tuple(
+                1 if dim in chunked_dims else ds.sizes[dim] for dim in variable.dims
+            ),
+        }
+        if variable.dtype.kind == 'f':
+            variable_encoding['dtype'] = 'float32'
+        encoding[name] = variable_encoding
+    return encoding
+
+
+def concatenate_grib_files(grib_files, output_file, template_file):
+    individual_ds = []
+    for path in grib_files:
+        logger.info(
+            '    reading grib file: %s',
+            path,
         )
-        .rename(
-            time='julian_day',
-            isobaricInhPa='level',
-        )
-        .sortby('level')
-    )
+        individual_ds.append(xr.open_dataset(
+            path,
+            engine='cfgrib',
+        ).drop_vars('valid_time'))
+    ds = xr.concat(individual_ds, dim='time').rename(time='julian_day')
     ds = ds.assign_coords(
         step=(ds.step / pd.Timedelta('1h')).astype('float32'),
-        level=ds.level.astype('float32'),
         latitude=ds.latitude.astype('float32'),
         longitude=ds.longitude.astype('float32'),
     )
+    if 'isobaricInhPa' in ds:
+        ds = ds.rename(isobaricInhPa='level')
+        ds = ds.assign_coords(level=ds.level.astype('float32'))
+        ds = ds.sortby('level')
+    else:
+        ds = ds.expand_dims('level').assign_coords(level=np.array([0], dtype='float32'))
+        ds = ds.rename(
+            u10='z10u',
+            v10='z10v',
+            t2m='z2t',
+            siconc='ci',
+        )
     ds = ds.drop_vars(
         set(ds.coords) - {'julian_day', 'step', 'level', 'latitude', 'longitude'},
     )
+    ds = ds.transpose('julian_day', 'step', 'level', 'latitude', 'longitude')
     ds = ds.drop_attrs(deep=True)
-    ds.to_netcdf(output_file, engine='h5netcdf')
+    logger.info('reading template netcdf file: %s', template_file)
+    template = xr.open_dataset(template_file, engine='h5netcdf')
+    # re-assign coords from template
+    ds = ds.assign_coords(
+        julian_day=template.julian_day,
+        step=template.step,
+        level=template.level,
+        latitude=template.latitude,
+        longitude=template.longitude,
+    )
+    # get attributes from template
+    for var in template.data_vars:
+        ds[var].attrs = template[var].attrs.copy()
+    logger.info('writing netcdf file: %s', output_file)
+    ds.to_netcdf(
+        output_file,
+        engine='h5netcdf',
+        encoding=get_netcdf_encoding(ds),
+        unlimited_dims=('julian_day',),
+    )
 
 
-def grib_to_netcdf(profile):
+def grib_to_netcdf(profile, tmpdir):
     iver_path = get_iver_path(profile)
     config = get_profile_config(profile)
     dates = pd.date_range(
@@ -129,43 +181,47 @@ def grib_to_netcdf(profile):
 
         for suffix in ('', '_sfc'):
             output_file = iver_path / f'grib/{exp}{suffix}_fc.nc'
+            template_file = iver_path / f'grib/{config.exp_template}{suffix}_fc.nc'
             if output_file.exists():
                 logger.info(
-                    'skipping GRIB files for %s/%s (nc file already exists)',
+                    'skipping GRIB files for %s%s (nc file already exists)',
                     exp,
                     suffix,
                 )
                 continue
 
-            grib_files = get_grib_paths(iver_path, exp, dates, suffix)
+            grib_files = get_grib_paths(tmpdir, exp, dates, suffix)
             missing_files = [path for path in grib_files if not path.exists()]
             if missing_files:
                 logger.info(
-                    'skipping GRIB files for %s/%s (%d forecast files missing)',
+                    'skipping GRIB files for %s%s (%d forecast files missing)',
                     exp,
                     suffix,
                     len(missing_files),
                 )
                 continue
 
-            logger.info('concatenating GRIB files for %s/%s', exp, suffix)
-            concatenate_grib_files(grib_files, output_file)
+            logger.info('concatenating GRIB files for %s%s', exp, suffix)
+            concatenate_grib_files(grib_files, output_file, template_file)
             output_file.chmod(
                 output_file.stat().st_mode
                 & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH),
             )
 
-        logger.info('removing GRIB files for %s', exp)
-        for suffix in ('', '_sfc'):
-            output_file = iver_path / f'grib/{exp}{suffix}_fc.nc'
+            logger.info('removing GRIB files for %s/%s', exp, suffix)
             if not output_file.exists():
                 logger.critical('expected output file does not exist: %s', output_file)
                 logger.critical('skipping removal of GRIB files')
                 continue
             for path in get_grib_paths(iver_path, exp, dates, suffix):
                 if path.exists():
-                    path.unlink()
-        (iver_path / f'grib/{exp}').rmdir()
+                    path.unlink(missing_ok=True)
+
+        output_file = iver_path / f'grib/{exp}_fc.nc'
+        output_file_sfc = iver_path / f'grib/{exp}_sfc_fc.nc'
+        tmp_path = iver_path / f'grib/{exp}'
+        if output_file.exists() and output_file_sfc.exists() and tmp_path.exists():
+            tmp_path.rmdir()
 
 
 def clean_iver(profile, experiments):
@@ -245,6 +301,7 @@ def run_iver(
             obstat=config.obstat,
             tech=config.tech,
             clean=clean,
+            nochecks=False,
             check=False,
         )
 
@@ -289,5 +346,6 @@ def run_iver_no_mars(
             obstat=config.obstat,
             tech=config.tech,
             clean=False,
+            nochecks=True,
             check=False,
         )
