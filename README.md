@@ -87,7 +87,7 @@ using `hpc-cron`.
 On the HPC, use the following command to produce a short report about
 the active experiments:
 ```sh
-watch-duck parse
+watch-duck report
 ```
 This will read the progress archive of each active experiment and write a short
 report of the progress over the last 10 days (subsampled to a 1-hour frequency)
@@ -137,7 +137,7 @@ Ideally, you should call this command before showing a summary.
 
 On any device, use the following command to show a summary of the latest report:
 ```sh
-watch-duck show
+watch-duck summary
 ```
 Use the help option to show all available options (in particular how to show
 the progress only for a given suite or experiment type).
@@ -153,7 +153,6 @@ vref_lw = 4
 vref_elda = 4
 ```
 where you can specify:
-
 - some parameters to compute the instantaneous speed of the experiments 
 (averaging period, and whether to excluded times where the experiment was aborted or suspended);
 - the reference speed for each experiment type (used to set the upper limit of the 
@@ -192,6 +191,7 @@ date_freq: 288h
 version: 3.17
 obstat: false
 tech: false
+exp_template: <ID>
 experiments:
   exp_id: exp_type
   ...
@@ -201,6 +201,7 @@ where you can specify:
 - the start and end date of the forecasts;
 - the frequency between forecasts;
 - whether to include obstat and a tech report;
+- a template experiment ID (will only be used in the following section);
 - a list of all experiments IDs and their corresponding type.
 
 For each experiment within this list, `watch-duck iver` will use IVER to (1)
@@ -217,18 +218,47 @@ in the help option of the `watch-duck iver` command.
 Ideally, you should call this command on a regular basis, typically once a day,
 e.g. using `hpc-cron`.
 
-#### GRIB to NetCDF
+#### Iver without MARS
 
-To gather all forecasts configured for an IVER profile into NetCDF files, run:
+Alternatively, you can set up your experiment so that it directly outputs the
+forecast fields on disk instead of archiving them on MARS. In that case,
+the IVER scores can easily be computed in two steps once the experiment is finished:
+1. convert the grib files into NetCDF (as used by IVER);
+2. run IVER on the gathered NetCDF files.
+
+Step 1 can be done on the HPC using the following command:
 ```sh
 watch-duck grib-to-nc <profile>
 ```
-For each experiment and each configured forecast date, this expects the files
-`grib/<exp>/<YYYYmmddHH>_fc.grib` and
-`grib/<exp>/<YYYYmmddHH>_sfc_fc.grib` in the profile's working directory.
-An experiment is skipped until every expected file exists, or when its IVER
-statistics or either output already exists. The resulting files are written to
-`grib/<exp>_fc.nc` and `grib/<exp>_sfc_fc.nc`.
+where `<profile>` is the name of the IVER profile.
+The list of experiments matching that profile is found in the 
+`watch_duck.yaml` file of that profile (see previous section).
+For each experiment, if the NetCDF file (containing the forecast fields)
+is required and if the experiment is finished (i.e. if all the grib files
+are available), the grib files will be read and converted into two
+NetCDF files (one for surface and one for upper air)
+
+For this command, you need to provide the following config:
+```toml
+[forecasts]
+tmpdir = '/path/to/forecasts'
+```
+where `tmpdir` is the temporary directory in which the forecast fields will appear.
+
+Note that IVER expects a non-standard encoding of dimensions, that
+is difficult to reproduce in python. Therefore, for simplicity the encoding
+of the dimensions of the NetCDF files is inferred from a template experiment,
+whose ID is specified in the `watch_duck.yaml` file of that profile
+(see previous section). For this experiment, the IVER has to be produced using 
+the "standard" process (i.e. with the `watch-duck iver` command). 
+
+Then, step 2 can be done on the HPC using the following command:
+```sh
+watch-duck iver-no-mars <profile>
+```
+where `<profile>` is the name of the IVER profile.
+This command will compute the IVER scores of the profile's experiments
+for which the NetCDF files are already available.
 
 #### Clean
 
@@ -248,13 +278,15 @@ e.g. using `hpc-cron`.
 
 On the HPC, every hour you should call:
 - `ecflow_client` to get the state of the suites;
-- the `parse` command;
-- the `report` command;
-- the `upload` command;
+- `watch-duck parse`;
+- `watch-duck report`;
+- `watch-duck clean`;
+- `watch-duck upload`;
 
 and every day you shoud call:
-- the `iver` command;
-- the `clean` command.
+- `watch-duck iver <profile>` for each profile where forecasts are archived in MARS;
+- `watch-duck grib-to-nc <profile>` and `watch-duck iver-no-mars <profile>`
+for each profile where forecasts are stored on disk.
 
 NB: if you are only interested in the following suites: daaf, dae, dav, nemc,
 these are already covered by daaf, and you can skip this first step. Just
@@ -262,6 +294,18 @@ make sure to set your `/wdir` to daaf's `/wdir` if you are on the HPC, or
 to use daaf's `iver` site if you are on any other device.
 
 Then, on any device, you can call at any time:
-- the `download` command (you don't need this if you are on the HPC);
-- the `summary` command;
-- the `finished` command.
+- `watch-duck download` (you don't need this if you are on the HPC);
+- `watch-duck summary`;
+- `watch-duck finished`;
+
+or simply `watch-duck show -d`.
+
+## Version update checklist
+
+- format and lint the code
+- update the README.md
+- add the version in the CHANGELOG.md
+- bump version number in pyproject.toml
+- build and publish (`hatch build` & `hatch publish`)
+- add the release on github
+
