@@ -116,10 +116,12 @@ def concatenate_grib_files(grib_files, output_file, template_file):
             '    reading grib file: %s',
             path,
         )
-        individual_ds.append(xr.open_dataset(
-            path,
-            engine='cfgrib',
-        ).drop_vars('valid_time'))
+        individual_ds.append(
+            xr.open_dataset(
+                path,
+                engine='cfgrib',
+            ).drop_vars('valid_time'),
+        )
     ds = xr.concat(individual_ds, dim='time').rename(time='julian_day')
     ds = ds.assign_coords(
         step=(ds.step / pd.Timedelta('1h')).astype('float32'),
