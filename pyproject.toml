@@ -32,7 +32,7 @@ description = "Personal python toolbox to track progress of ecflow experiments"
 name = "watch-duck"
 readme = "README.md"
 requires-python = ">= 3.11"
-version = "1.1.1"
+version = "1.2.0"
 
 [project.scripts]
 watch-duck = "watch_duck.main:cli"

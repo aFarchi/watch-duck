@@ -306,6 +306,6 @@ or simply `watch-duck show -d`.
 - update the README.md
 - add the version in the CHANGELOG.md
 - bump version number in pyproject.toml
+- commit and push
 - build and publish (`hatch build` & `hatch publish`)
-- add the release on github
-
+- add the tag release on github

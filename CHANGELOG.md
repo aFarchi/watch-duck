@@ -12,3 +12,6 @@
 
 - Added option to show version number.
 
+## Version 1.2.0 (2026-10-09)
+
+- Added the IVER without MARS commands.
