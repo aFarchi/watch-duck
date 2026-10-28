@@ -12,6 +12,10 @@ Install using `pip`:
 
     $ pip install watch-duck
 
+or using `conda`:
+
+    $ conda install -c conda-forge watch-duck
+
 For some functionalities (see below), you need to install `sitesctl` 
 from [here](https://confluence.ecmwf.int/display/UDOC/SitesCTL%3A+Manage+Website+Content).
 
@@ -28,6 +32,13 @@ directory:
 wdir = '/path/to/the/working/directory'
 ```
 In the following, the path to the working directory will simply be called `/wdir`.
+
+### Global options
+
+The following options go before the command name:
+- `--debug`: enable debug logging for all commands, e.g. `watch-duck --debug parse`;
+- `--version/-v`: show the version and exit;
+- `-h/--help`: show the help message and exit.
 
 ### Commands
 
@@ -154,7 +165,7 @@ vref_elda = 4
 ```
 where you can specify:
 - some parameters to compute the instantaneous speed of the experiments 
-(averaging period, and whether to excluded times where the experiment was aborted or suspended);
+(averaging period, and whether to exclude times where the experiment was aborted or suspended);
 - the reference speed for each experiment type (used to set the upper limit of the 
 colour scale).
 
@@ -170,17 +181,25 @@ For this command, you don't need to provide further config.
 #### Show
 
 The `show` command is simply a concatenation of the `download` (optional),
-`summary`, and `finished` commands.
+`summary`, and `finished` commands. Use the `--download/-d` option to download
+the latest report first:
+```sh
+watch-duck show -d
+```
+
+For this command, you need to provide the `[summary]` config (see above), and
+also the `[site]` config and `sitesctl` (see `download`) if you use `-d`.
 
 #### Iver
 
 On the HPC, use the following command to compute the IVER scores of compatible
-fc experiments:
+experiments (types fc, lw and elda):
 ```sh
 watch-duck iver <profile>
 ```
 where `<profile>` is the name of the IVER profile to run. Following IVER's
-behaviour, the profile's working directory is found in the `~/.iver.<profile>` file.
+behaviour, the profile's working directory (called `/iver-wdir` in the following)
+is found in the `~/.iver.<profile>` file.
 Within this directory, `watch-duck iver` will look for a yaml file named 
 `/iver-wdir/watch_duck.yaml`. This yaml file contains all the parameters used
 to configure IVER for that specific profile:
@@ -236,7 +255,11 @@ The list of experiments matching that profile is found in the
 For each experiment, if the NetCDF file (containing the forecast fields)
 is required and if the experiment is finished (i.e. if all the grib files
 are available), the grib files will be read and converted into two
-NetCDF files (one for surface and one for upper air)
+NetCDF files (one for surface and one for upper air).
+Each NetCDF file is written separately, and right after one is written the grib
+files that were read for it are deleted from `<tmpdir>/<exp>/`. Once both NetCDF
+files exist, the `<tmpdir>/<exp>/` folder is removed if it is empty (otherwise,
+a warning is logged).
 
 For this command, you need to provide the following config:
 ```toml
@@ -262,17 +285,19 @@ for which the NetCDF files are already available.
 
 #### Clean
 
-On the HPC, use the following command to clean old and temporary files:
+On the HPC, use the following command to clean old files:
 ```sh
 watch-duck clean
 ```
+This removes the files older than 30 days among the archived log files
+(`/wdir/log/arxiv/*.log`), the archived active-experiment files
+(`/wdir/active/arxiv/*.txt`) and the slurm outputs (`/wdir/slurm/*.out`).
+IVER's temporary files are not handled here: they are cleaned automatically at
+the end of `watch-duck iver`.
 
-For this command, you don't need to provide further config, but you need to
-provide the IVER configuration (see above) if you want to clean IVER's
-temporary files.
+For this command, you don't need to provide further config.
 
-Ideally, you should call this command on a regular basis, typically once a day,
-e.g. using `hpc-cron`.
+Ideally, you should call this command every hour, e.g. using `hpc-cron`.
 
 ### Summary
 
@@ -283,14 +308,15 @@ On the HPC, every hour you should call:
 - `watch-duck clean`;
 - `watch-duck upload`;
 
-and every day you shoud call:
+and every day you should call:
 - `watch-duck iver <profile>` for each profile where forecasts are archived in MARS;
 - `watch-duck grib-to-nc <profile>` and `watch-duck iver-no-mars <profile>`
 for each profile where forecasts are stored on disk.
 
 NB: if you are only interested in the following suites: daaf, dae, dav, nemc,
-these are already covered by daaf, and you can skip this first step. Just
-make sure to set your `/wdir` to daaf's `/wdir` if you are on the HPC, or
+all the hourly HPC commands above (`ecflow_client`, `parse`, `report`, `clean`
+and `upload`) are already run for them by daaf, so you can skip this first step.
+Just make sure to set your `/wdir` to daaf's `/wdir` if you are on the HPC, or
 to use daaf's `iver` site if you are on any other device.
 
 Then, on any device, you can call at any time:
@@ -307,5 +333,6 @@ or simply `watch-duck show -d`.
 - add the version in the CHANGELOG.md
 - bump version number in pyproject.toml
 - commit and push
-- build and publish (`hatch build` & `hatch publish`)
+- build and publish (`hatch build` & `hatch publish`); hatch is intentionally
+kept outside the project environment and is installed with `pixi global install hatch`
 - add the tag release on github

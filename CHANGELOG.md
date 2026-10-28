@@ -15,3 +15,11 @@
 ## Version 1.2.0 (2026-10-09)
 
 - Added the IVER without MARS commands.
+
+## Version 1.2.1 (2026-10-28)
+
+- Fixed `grib-to-nc` not removing the GRIB files after converting them to NetCDF.
+- `grib-to-nc` no longer creates cfgrib index (`.idx`) files.
+- Removed the `-d` short form of the `--debug` option, which clashed with `show -d` (download).
+- Reworded the help text of the `show` command.
+- Updated the README.

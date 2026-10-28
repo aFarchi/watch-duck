@@ -120,6 +120,7 @@ def concatenate_grib_files(grib_files, output_file, template_file):
             xr.open_dataset(
                 path,
                 engine='cfgrib',
+                backend_kwargs={'indexpath': ''},
             ).drop_vars('valid_time'),
         )
     ds = xr.concat(individual_ds, dim='time').rename(time='julian_day')
@@ -215,15 +216,18 @@ def grib_to_netcdf(profile, tmpdir):
                 logger.critical('expected output file does not exist: %s', output_file)
                 logger.critical('skipping removal of GRIB files')
                 continue
-            for path in get_grib_paths(iver_path, exp, dates, suffix):
-                if path.exists():
-                    path.unlink(missing_ok=True)
+            for path in grib_files:
+                path.unlink(missing_ok=True)
 
         output_file = iver_path / f'grib/{exp}_fc.nc'
         output_file_sfc = iver_path / f'grib/{exp}_sfc_fc.nc'
-        tmp_path = iver_path / f'grib/{exp}'
+        tmp_path = pathlib.Path(tmpdir) / exp
         if output_file.exists() and output_file_sfc.exists() and tmp_path.exists():
-            tmp_path.rmdir()
+            if any(tmp_path.iterdir()):
+                logger.warning('not removing non-empty folder: %s', tmp_path)
+            else:
+                logger.info('removing empty folder: %s', tmp_path)
+                tmp_path.rmdir()
 
 
 def clean_iver(profile, experiments):

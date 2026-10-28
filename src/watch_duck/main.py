@@ -23,7 +23,6 @@ def get_config():
 @click.version_option(watch_duck.__version__, '--version', '-v', prog_name='watch-duck')
 @click.option(
     '--debug',
-    '-d',
     is_flag=True,
     default=False,
     help='Enable debug logging for all commands.',
@@ -129,7 +128,10 @@ def show_finished():
     help='Download before showing.',
 )
 def show(download):
-    """Download show progress report (combination of other commands)."""
+    """Show the progress report, optionally downloading it first.
+
+    This is a combination of other commands.
+    """
     config = get_config()
     if download:
         watch_duck.report.download_report(
