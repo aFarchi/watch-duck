@@ -27,12 +27,16 @@ def select_variables(ds, prefix):
             ds.STAT_ZONAL_TIMESTD.rename(f'{prefix}_zonal_std'),
             ds.STAT_REGION_TIMEMEAN.rename(f'{prefix}_region_mean'),
             ds.STAT_REGION_TIMESTD.rename(f'{prefix}_region_std'),
+            ds.STAT_REGION.rename(f'{prefix}_region'),
         ),
         join='exact',
     )
 
 
 def transform(ds):
+    date = pd.to_datetime(ds.JULIAN_DAY.to_numpy(), unit='D', origin='julian').round(
+        '1h',
+    )
     step = ds.FORECAST_TIME.to_numpy() * pd.Timedelta('1h')
     variable = [p.decode().lower() for p in ds.PARAM_NAME.to_numpy()]
     pressure = ds.PRESSURE.to_numpy() / 100
@@ -52,11 +56,13 @@ def transform(ds):
             LATITUDE='latitude',
             LONGITUDE='longitude',
             FORECAST_TIME='step',
+            JULIAN_DAY='date',
             STAT_INDEX='stat_indicator',
             PARAM_INDEX='variable',
             REGION='region',
         )
         .assign_coords(
+            date=date,
             step=step,
             stat_indicator=stat_indicator,
             variable=variable,
@@ -134,18 +140,24 @@ def postprocessed_experiments(zarr_store):
 
 
 def first_difference(reference, ds):
-    if set(reference.data_vars) != set(ds.data_vars):
-        return 'data variables'
+    missing = set(reference.data_vars) - set(ds.data_vars)
+    extra = set(ds.data_vars) - set(reference.data_vars)
+    if missing or extra:
+        return (
+            'data variables differ '
+            f'(missing in new: {", ".join(sorted(missing)) or "none"}; '
+            f'extra in new: {", ".join(sorted(extra)) or "none"})'
+        )
     for name in sorted(reference.data_vars):
         if reference[name].dims != ds[name].dims:
-            return f'dimensions of {name}'
+            return f'dimensions of {name} differ'
     for name in sorted((set(reference.coords) | set(ds.coords)) - {'experiment'}):
         if (
             name not in reference.coords
             or name not in ds.coords
             or not reference[name].variable.equals(ds[name].variable)
         ):
-            return f'coordinate {name}'
+            return f'coordinate {name} differs'
     return None
 
 
@@ -161,7 +173,7 @@ def write_experiments(zarr_store, iver_path, profile, experiments):
                 difference = first_difference(reference, ds)
                 if difference is not None:
                     logger.warning(
-                        'skipping %s (%s differs from %s)',
+                        'skipping %s (%s; compared with %s)',
                         experiment_id,
                         difference,
                         zarr_store,
