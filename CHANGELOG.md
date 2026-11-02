@@ -23,3 +23,9 @@
 - Removed the `-d` short form of the `--debug` option, which clashed with `show -d` (download).
 - Reworded the help text of the `show` command.
 - Updated the README.
+
+## Version 1.3.0 (2026-11-02)
+
+- Added the `iver-postprocess` command, which merges the IVER stats files of a profile into a single zarr archive.
+- Added `cftime` to the dependencies (needed by `grib-to-nc`).
+- Updated the README.

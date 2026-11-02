@@ -283,6 +283,46 @@ where `<profile>` is the name of the IVER profile.
 This command will compute the IVER scores of the profile's experiments
 for which the NetCDF files are already available.
 
+#### Iver postprocess
+
+Once IVER has computed the scores, use the following command on the HPC to
+gather the IVER stats files of a profile into a single zarr archive:
+```sh
+watch-duck iver-postprocess <profile>
+```
+where `<profile>` is the name of the IVER profile. As for the other IVER commands,
+the profile's working directory (`/iver-wdir`) is found in the `~/.iver.<profile>`
+file.
+
+The command reads the stats files `/iver-wdir/stats/verify_<exp>_0001_<profile>.nc`
+(upper air) and `/iver-wdir/stats/verify_<exp>_0001_<profile>_sfc.nc` (surface)
+of each experiment. Only the complete stats files, i.e. the ones tagged with
+`<profile>`, are read: the partial files tagged with `tmp` are ignored.
+An experiment without a `_sfc.nc` file is skipped, and a warning is logged.
+
+The scores are written in `/iver-wdir/estats/scores.zarr`, with one entry per
+experiment along the `experiment` dimension. Each time the command is run, every
+experiment that is not yet in the archive is appended to it (one at a time, in
+sorted order). An experiment whose variables or coordinates (e.g. pressure levels,
+steps, regions) differ from the ones already in the archive is skipped, and a
+warning is logged; during a rebuild, the first experiment (in sorted order) is the
+reference. Use the `--rebuild/-r` option to rebuild the whole archive from the
+stats files instead:
+```sh
+watch-duck iver-postprocess <profile> --rebuild
+```
+The new archive is first written in a staging store next to the old one, and it
+replaces the old archive only once it is complete. Experiments that are in the old
+archive but have no complete stats files are dropped (a warning lists them).
+
+For this command, you don't need to provide further config: it only needs the
+`~/.iver.<profile>` file (the `watch-duck.toml` config file and the
+`watch_duck.yaml` file of the profile are not used).
+
+This command is not run automatically by `watch-duck iver` or
+`watch-duck iver-no-mars`. Ideally, you should call it each time IVER computed
+new scores, typically once a day after the IVER runs, e.g. using `hpc-cron`.
+
 #### Clean
 
 On the HPC, use the following command to clean old files:
@@ -311,7 +351,8 @@ On the HPC, every hour you should call:
 and every day you should call:
 - `watch-duck iver <profile>` for each profile where forecasts are archived in MARS;
 - `watch-duck grib-to-nc <profile>` and `watch-duck iver-no-mars <profile>`
-for each profile where forecasts are stored on disk.
+for each profile where forecasts are stored on disk;
+- `watch-duck iver-postprocess <profile>` for each profile, after the IVER runs.
 
 NB: if you are only interested in the following suites: daaf, dae, dav, nemc,
 all the hourly HPC commands above (`ecflow_client`, `parse`, `report`, `clean`

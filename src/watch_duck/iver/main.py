@@ -9,6 +9,7 @@ import xarray as xr
 from omegaconf import OmegaConf
 
 from watch_duck.common.wdir import WorkingDirectory
+from watch_duck.iver.postprocess import postprocess_scores
 
 logger = logging.getLogger(__name__)
 
@@ -355,3 +356,11 @@ def run_iver_no_mars(
             nochecks=True,
             check=False,
         )
+
+
+def run_iver_postprocess(
+    profile,
+    *,
+    rebuild=False,
+):
+    postprocess_scores(get_iver_path(profile), profile, rebuild=rebuild)

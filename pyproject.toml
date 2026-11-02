@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "bottleneck",
     "cfgrib",
+    "cftime",
     "dask",
     "h5netcdf",
     "numpy",
@@ -32,7 +33,7 @@ description = "Personal python toolbox to track progress of ecflow experiments"
 name = "watch-duck"
 readme = "README.md"
 requires-python = ">= 3.11"
-version = "1.2.1"
+version = "1.3.0"
 
 [project.scripts]
 watch-duck = "watch_duck.main:cli"
@@ -80,6 +81,7 @@ show = "watch-duck show"
 [tool.pixi.dependencies]
 bottleneck = ">=1.6.0,<2"
 cfgrib = ">=0.9.15,<0.10"
+cftime = ">=1.6.5,<2"
 dask = ">=2026.3.0,<2027"
 h5netcdf = ">=1.8.1,<2"
 jupyterlab = ">=4.5.6,<5"

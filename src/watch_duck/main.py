@@ -208,6 +208,23 @@ def run_iver_no_mars(profile):
     )
 
 
+@cli.command(name='iver-postprocess')
+@click.argument('profile', type=str)
+@click.option(
+    '--rebuild',
+    '-r',
+    is_flag=True,
+    default=False,
+    help='Rebuild the whole scores archive from the stats files (default: False)',
+)
+def run_iver_postprocess(profile, rebuild):
+    """Merge the IVER stats files of a profile into a single zarr archive."""
+    watch_duck.iver.run_iver_postprocess(
+        profile,
+        rebuild=rebuild,
+    )
+
+
 @cli.command(name='clean')
 def clean():
     """Clean up old files and logs."""
