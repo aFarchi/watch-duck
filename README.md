@@ -162,10 +162,16 @@ exclude_suspended = true
 vref_fc = 25
 vref_lw = 4
 vref_elda = 4
+restart_max_index = 2
 ```
 where you can specify:
 - some parameters to compute the instantaneous speed of the experiments 
-(averaging period, and whether to exclude times where the experiment was aborted or suspended);
+(averaging period, and whether to exclude times where the experiment was aborted or suspended).
+Hours when the experiment was finished (state complete, or progress at the end) are
+never counted, and only the hours after the last restart (i.e. the last time the progress fell back to the start) are used;
+- the restart threshold `restart_max_index` (optional, default 2): a drop in progress
+counts as a restart only if the index right after the drop is between 0 and
+`restart_max_index`; other drops (reruns of a few cycles) are ignored;
 - the reference speed for each experiment type (used to set the upper limit of the 
 colour scale).
 

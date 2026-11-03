@@ -14,7 +14,24 @@ from watch_duck.summary.format_summary import (
 )
 
 
-def get_summary(ds, delta_t, exclude_aborted, exclude_suspended):
+def get_hours_after_restart(index, restart_max_index):
+    # a restart is a drop in the index compared with the last known index,
+    # landing at the start (other drops are reruns of a few cycles)
+    index = index.ffill(dim='time')
+    drop = index.diff(dim='time', label='lower') < 0
+    lands_at_start = index.shift(time=-1).isel(time=slice(0, -1)) <= restart_max_index
+    restart = (drop & lands_at_start).astype(int)
+    # hour t is kept only if there is no restart at t or later
+    restart_later = (
+        restart
+        .isel(time=slice(None, None, -1))
+        .cumsum(dim='time')
+        .isel(time=slice(None, None, -1))
+    )
+    return xr.where(restart_later == 0, 1, 0)
+
+
+def get_summary(ds, delta_t, exclude_aborted, exclude_suspended, restart_max_index=2):
     ds['total'] = 1 + (ds.date_end - ds.date_start) // (
         pd.Timedelta('1h') * ds.date_freq
     )
@@ -25,7 +42,16 @@ def get_summary(ds, delta_t, exclude_aborted, exclude_suspended):
     ds['index'] = xr.where(ds.index >= 0, ds.index, np.nan)
     delta_index = ds.index.diff(dim='time', label='lower')
     delta_index = np.maximum(delta_index, 0)
+    # finished hours: state complete or progress at the end (index at hour t itself,
+    # so that the last increment still counts)
+    hours_finished = (ds.state.isel(time=slice(0, -1)) == encode_state('complete')) | (
+        ds.index.isel(time=slice(0, -1)) >= ds.total
+    )
+    hours_active = xr.where(hours_finished, 0, 1)
+    hours_active *= get_hours_after_restart(ds.index, restart_max_index)
+    delta_index *= hours_active
     hours_valid = xr.where(ds.state.isel(time=slice(0, -1)) != -1, 1, 0)
+    hours_valid *= hours_active
     hours_non_aborted = xr.where(
         ds.state.isel(time=slice(0, -1)) != encode_state('aborted'),
         1,
@@ -77,6 +103,7 @@ def show_summary(
     vref_fc,
     vref_lw,
     vref_elda,
+    restart_max_index=2,
 ):
     wdir = WorkingDirectory(wdir)
     report = wdir.get_report()
@@ -90,7 +117,13 @@ def show_summary(
         for name in report.data_vars
         if name.endswith(('_preprocess', '_main', '_postprocess'))
     )
-    summary = get_summary(report, delta_t, exclude_aborted, exclude_suspended)
+    summary = get_summary(
+        report,
+        delta_t,
+        exclude_aborted,
+        exclude_suspended,
+        restart_max_index,
+    )
     summary = summary.sortby([
         summary.experiment_type,
         summary.suite,
