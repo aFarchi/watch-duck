@@ -81,12 +81,12 @@ def get_summary(ds, delta_t, exclude_aborted, exclude_suspended, restart_max_ind
     ds['remaining'] = xr.where(
         ds['speed_day_day'] > 0,
         (ds.date_end - ds.date_current) / ds['speed_day_day'],
-        np.timedelta64('NaT'),
+        np.timedelta64('NaT', 'ns'),
     )
     ds['eta'] = xr.where(
         ds['speed_day_day'] > 0,
         pd.Timestamp.now() + ds['remaining'],
-        np.datetime64('NaT'),
+        np.datetime64('NaT', 'ns'),
     )
     ds['progress'] = ds.index.isel(time=-1) / ds.total
     return ds.isel(time=-1)

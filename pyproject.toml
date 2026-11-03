@@ -66,6 +66,17 @@ ignore = [
     "D",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    # use of assert (S101)
+    "assert",
+    # no __init__.py in tests (INP001)
+    "implicit-namespace-package",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-arm64"]
@@ -77,6 +88,7 @@ watch-duck = { path = ".", editable = true }
 lint = "ruff check"
 format = "ruff format --config \"lint.ignore = ['COM812']\""
 show = "watch-duck show"
+test = "pytest"
 
 [tool.pixi.dependencies]
 bottleneck = ">=1.6.0,<2"
@@ -87,6 +99,7 @@ h5netcdf = ">=1.8.1,<2"
 jupyterlab = ">=4.5.6,<5"
 numpy = ">=2.4.3,<3"
 pandas = ">=3.0.2,<4"
+pytest = ">=9.2.0,<10"
 rich = ">=14.3.3,<15"
 rich-click = ">=1.9.7,<2"
 ruff = ">=0.15.9,<0.16"

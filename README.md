@@ -376,6 +376,7 @@ or simply `watch-duck show -d`.
 ## Version update checklist
 
 - format and lint the code
+- run the tests (`pixi run test`)
 - update the README.md
 - add the version in the CHANGELOG.md
 - bump version number in pyproject.toml
